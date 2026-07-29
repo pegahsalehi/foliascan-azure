@@ -1,0 +1,63 @@
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+site/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Datasets and generated data
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Sample images are kept local unless explicitly curated for the repository
+sample_images/*
+!sample_images/.gitkeep
+
+# Models, checkpoints, and experiment outputs
+models/
+checkpoints/
+artifacts/
+runs/
+mlruns/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Secrets and local configuration
+*.pem
+*.key
+secrets.*
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

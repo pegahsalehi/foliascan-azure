@@ -1,0 +1,100 @@
+# LeafSignal AI
+
+LeafSignal AI is a learning and portfolio project for building a crop-leaf disease image-classification system. The project starts with a local Python implementation and is planned to grow into an Azure Machine Learning workflow for training, tracking, registering, and deploying a model.
+
+This project was selected because plant health classification is a practical computer vision problem with a clear path from local experimentation to cloud-based machine learning operations. It offers room to practice dataset validation, baseline modeling, evaluation, explainability, deployment, and monitoring without adding unnecessary product complexity in the early phases.
+
+LeafSignal AI is educational software. It is not a diagnostic tool. Any future predictions from this project must not replace advice from agricultural specialists, agronomists, plant pathologists, or other qualified professionals.
+
+## Current Phase and Status
+
+The project is in Phase 1A: project initialization, within Phase 1: Local project foundation.
+
+Current status:
+
+- Python package structure is initialized.
+- Project-level path configuration is available in `src/leafsignal/config.py`.
+- Example training settings are documented in `configs/training.example.yaml`.
+- Tests and quality-tool configuration are ready for local validation.
+- No Azure integration, dataset download, model training, deployment, web interface, or CI/CD has been implemented.
+
+## Planned Workflow
+
+The planned workflow is local first, then Azure:
+
+1. Build and validate the project locally.
+2. Prepare and validate the image dataset.
+3. Train a baseline image classifier locally.
+4. Evaluate model quality and add explainability.
+5. Define Azure infrastructure only when the local workflow is understood.
+6. Train with Azure Machine Learning and track experiments with MLflow.
+7. Register the model and deploy it to a managed online endpoint.
+8. Build a simple client application for inference.
+9. Add GitHub Actions and monitoring.
+
+## Planned Project Phases
+
+1. Local project foundation
+2. Dataset preparation and validation
+3. Local baseline image classifier
+4. Evaluation and explainability
+5. Azure infrastructure
+6. Azure Machine Learning training and MLflow tracking
+7. Model registration and managed online endpoint
+8. Simple client application
+9. GitHub Actions and monitoring
+
+## Installation
+
+This project uses Python 3.11 and Poetry.
+
+```powershell
+poetry install
+```
+
+To run commands inside the Poetry environment:
+
+```powershell
+poetry run pytest
+poetry run ruff check .
+poetry run mypy src
+```
+
+## Repository Structure
+
+```text
+.
+├── src/
+│   └── leafsignal/
+│       ├── __init__.py
+│       └── config.py
+├── tests/
+│   └── test_import.py
+├── configs/
+│   └── training.example.yaml
+├── notebooks/
+│   └── README.md
+├── data/
+│   ├── raw/
+│   │   └── .gitkeep
+│   └── processed/
+│       └── .gitkeep
+├── sample_images/
+│   └── .gitkeep
+├── .env.example
+├── .gitignore
+├── AGENTS.md
+├── LICENSE
+├── pyproject.toml
+└── README.md
+```
+
+## Naming Conventions
+
+- Display name: LeafSignal AI
+- Repository and local folder name: `leafsignal-ai`
+- Python package name: `leafsignal`
+
+## Local Configuration
+
+Use `.env.example` as a template for future local configuration. Do not commit real `.env` files, credentials, API keys, tokens, Azure subscription IDs, or other secrets.
