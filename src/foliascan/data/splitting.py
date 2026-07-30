@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
 
-from leafsignal.data.discovery import ImageRecord
+from foliascan.data.discovery import ImageRecord
 
 SplitName = Literal["train", "validation", "test"]
 

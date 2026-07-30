@@ -2,8 +2,8 @@ from pathlib import Path
 
 from PIL import Image
 
-from leafsignal.data.discovery import ImageRecord
-from leafsignal.data.validation import (
+from foliascan.data.discovery import ImageRecord
+from foliascan.data.validation import (
     CountRecord,
     ImageSizeCount,
     summarize_dataset,
@@ -113,4 +113,3 @@ def test_summarize_dataset_counts_classes_extensions_and_imbalance(
 def _create_image(path: Path, size: tuple[int, int], mode: str) -> None:
     image = Image.new(mode, size)
     image.save(path)
-

@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "leafsignal-ai"
+name = "foliascan-azure"
 version = "0.1.0"
-description = "A learning and portfolio project for crop-leaf disease image classification."
-authors = ["LeafSignal AI Contributors"]
+description = "FoliaScan is a learning and portfolio project for crop-leaf disease image classification."
+authors = ["FoliaScan Contributors"]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "leafsignal", from = "src" }]
+packages = [{ include = "foliascan", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
@@ -50,6 +50,6 @@ select = [
 [tool.mypy]
 python_version = "3.11"
 mypy_path = "src"
-packages = ["leafsignal"]
+packages = ["foliascan"]
 strict = true
 warn_unused_configs = true

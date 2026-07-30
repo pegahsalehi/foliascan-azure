@@ -1,4 +1,4 @@
-"""Project-level paths for LeafSignal AI."""
+"""Project-level paths for FoliaScan."""
 
 from pathlib import Path
 from typing import Final

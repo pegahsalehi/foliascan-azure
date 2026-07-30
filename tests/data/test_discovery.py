@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from leafsignal.data.discovery import (
+from foliascan.data.discovery import (
     DatasetDiscoveryError,
     ImageRecord,
     discover_class_directories,
@@ -66,4 +66,3 @@ def test_discover_class_directories_rejects_root_without_classes(
 
     with pytest.raises(DatasetDiscoveryError, match="No class directories"):
         discover_class_directories(tmp_path)
-

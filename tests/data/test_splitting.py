@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from leafsignal.data import cli
-from leafsignal.data.discovery import ImageRecord
-from leafsignal.data.splitting import (
+from foliascan.data import cli
+from foliascan.data.discovery import ImageRecord
+from foliascan.data.splitting import (
     SplitRecord,
     create_split_assignments,
     write_manifest,

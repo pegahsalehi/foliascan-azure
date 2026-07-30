@@ -11,7 +11,7 @@ from typing import TypeAlias
 
 from PIL import Image
 
-from leafsignal.data.discovery import ImageRecord
+from foliascan.data.discovery import ImageRecord
 
 JsonValue: TypeAlias = (
     None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]

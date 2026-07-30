@@ -41,7 +41,7 @@ leaf-condition features. Field images can introduce domain shift from different
 cameras, weather, soil, plant varieties, leaf occlusion, and mixed disease
 states.
 
-LeafSignal AI is educational software. It must not be treated as a diagnostic
+FoliaScan is educational software. It must not be treated as a diagnostic
 tool, and any future predictions must not replace advice from agricultural
 specialists, agronomists, plant pathologists, or other qualified professionals.
 
@@ -51,13 +51,13 @@ license, permitted uses, and required citation.
 ## Inspect A Dataset
 
 ```powershell
-poetry run python -m leafsignal.data.cli inspect --data-dir data/raw/plantvillage_tomato_color
+poetry run python -m foliascan.data.cli inspect --data-dir data/raw/plantvillage_tomato_color
 ```
 
 To also write a JSON report:
 
 ```powershell
-poetry run python -m leafsignal.data.cli inspect --data-dir data/raw/plantvillage_tomato_color --json-report data/processed/dataset_report.json
+poetry run python -m foliascan.data.cli inspect --data-dir data/raw/plantvillage_tomato_color --json-report data/processed/dataset_report.json
 ```
 
 Inspection discovers supported files, validates them with Pillow, counts classes
@@ -67,7 +67,7 @@ without modifying source files.
 ## Generate A Manifest
 
 ```powershell
-poetry run python -m leafsignal.data.cli split --data-dir data/raw/plantvillage_tomato_color --output data/processed/dataset_manifest.csv
+poetry run python -m foliascan.data.cli split --data-dir data/raw/plantvillage_tomato_color --output data/processed/dataset_manifest.csv
 ```
 
 The manifest contains:
@@ -81,4 +81,3 @@ requires `--overwrite` before replacing an existing manifest.
 
 Raw datasets and generated data under `data/raw/` and `data/processed/` are
 excluded from Git by default.
-

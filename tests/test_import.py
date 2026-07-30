@@ -1,7 +1,7 @@
 from pathlib import Path
 
-import leafsignal
-from leafsignal.config import (
+import foliascan
+from foliascan.config import (
     PROCESSED_DATA_DIR,
     PROJECT_ROOT,
     RAW_DATA_DIR,
@@ -11,7 +11,7 @@ from leafsignal.config import (
 
 
 def test_package_imports() -> None:
-    assert leafsignal.__version__
+    assert foliascan.__version__
 
 
 def test_project_root_exists() -> None:

@@ -1,10 +1,10 @@
-# LeafSignal AI
+# FoliaScan
 
-LeafSignal AI is a learning and portfolio project for building a crop-leaf disease image-classification system. The project starts with a local Python implementation and is planned to grow into an Azure Machine Learning workflow for training, tracking, registering, and deploying a model.
+FoliaScan is a learning and portfolio project for building a crop-leaf disease image-classification system. The project starts with a local Python implementation and is planned to grow into an Azure Machine Learning workflow for training, tracking, registering, and deploying a model.
 
 This project was selected because plant health classification is a practical computer vision problem with a clear path from local experimentation to cloud-based machine learning operations. It offers room to practice dataset validation, baseline modeling, evaluation, explainability, deployment, and monitoring without adding unnecessary product complexity in the early phases.
 
-LeafSignal AI is educational software. It is not a diagnostic tool. Any future predictions from this project must not replace advice from agricultural specialists, agronomists, plant pathologists, or other qualified professionals.
+FoliaScan is educational software. It is not a diagnostic tool. Any future predictions from this project must not replace advice from agricultural specialists, agronomists, plant pathologists, or other qualified professionals.
 
 ## Current Phase and Status
 
@@ -14,7 +14,7 @@ Current status:
 
 - Phase 1A local project foundation is complete.
 - Python package structure is initialized.
-- Project-level path configuration is available in `src/leafsignal/config.py`.
+- Project-level path configuration is available in `src/foliascan/config.py`.
 - Example training settings are documented in `configs/training.example.yaml`.
 - Dataset preparation notes are documented in `docs/dataset.md`.
 - Tests and quality-tool configuration are ready for local validation.
@@ -70,49 +70,51 @@ manifest workflow.
 Inspect a local directory-based dataset:
 
 ```powershell
-poetry run python -m leafsignal.data.cli inspect --data-dir data/raw/plantvillage_tomato_color
+poetry run python -m foliascan.data.cli inspect `
+  --data-dir data/raw/plantvillage_tomato_color
 ```
 
 Generate a stratified manifest from valid images:
 
 ```powershell
-poetry run python -m leafsignal.data.cli split --data-dir data/raw/plantvillage_tomato_color --output data/processed/dataset_manifest.csv
+poetry run python -m foliascan.data.cli split `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --output data/processed/dataset_manifest.csv
 ```
 
 ## Repository Structure
 
+This repository is being prepared for the intended final project naming. The
+GitHub repository and local folder renames remain manual steps.
+
 ```text
-.
-├── src/
-│   └── leafsignal/
-│       ├── __init__.py
-│       └── config.py
-├── tests/
-│   └── test_import.py
-├── configs/
-│   └── training.example.yaml
-├── notebooks/
-│   └── README.md
-├── data/
-│   ├── raw/
-│   │   └── .gitkeep
-│   └── processed/
-│       └── .gitkeep
-├── sample_images/
-│   └── .gitkeep
-├── .env.example
-├── .gitignore
-├── AGENTS.md
-├── LICENSE
-├── pyproject.toml
-└── README.md
+foliascan-azure/
+|-- src/
+|   `-- foliascan/
+|       |-- __init__.py
+|       |-- config.py
+|       `-- data/
+|-- tests/
+|-- configs/
+|-- docs/
+|-- notebooks/
+|-- data/
+|-- sample_images/
+|-- .env.example
+|-- .gitignore
+|-- AGENTS.md
+|-- LICENSE
+|-- pyproject.toml
+`-- README.md
 ```
 
 ## Naming Conventions
 
-- Display name: LeafSignal AI
-- Repository and local folder name: `leafsignal-ai`
-- Python package name: `leafsignal`
+- Display name: FoliaScan
+- GitHub repository name: `foliascan-azure`
+- Local folder name: `foliascan-azure`
+- Poetry distribution name: `foliascan-azure`
+- Python package name: `foliascan`
 
 ## Local Configuration
 

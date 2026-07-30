@@ -1,4 +1,4 @@
-"""LeafSignal AI package."""
+"""FoliaScan package."""
 
 __all__ = ["__version__"]
 

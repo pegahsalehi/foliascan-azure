@@ -7,17 +7,17 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from leafsignal.data.discovery import (
+from foliascan.data.discovery import (
     DatasetDiscoveryError,
     discover_class_names,
     discover_image_records,
 )
-from leafsignal.data.splitting import (
+from foliascan.data.splitting import (
     create_split_assignments,
     split_counts,
     write_manifest,
 )
-from leafsignal.data.validation import (
+from foliascan.data.validation import (
     DatasetSummary,
     summarize_dataset,
     validate_images,
@@ -46,7 +46,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m leafsignal.data.cli",
+        prog="python -m foliascan.data.cli",
         description="Inspect and split a directory-based image dataset.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -200,4 +200,3 @@ def _namespace_bool(args: argparse.Namespace, name: str) -> bool:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
