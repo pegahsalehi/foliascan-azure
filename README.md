@@ -8,13 +8,15 @@ LeafSignal AI is educational software. It is not a diagnostic tool. Any future p
 
 ## Current Phase and Status
 
-The project is in Phase 1A: project initialization, within Phase 1: Local project foundation.
+The project is in Phase 1B: local dataset preparation and validation, within Phase 1: Local project foundation.
 
 Current status:
 
+- Phase 1A local project foundation is complete.
 - Python package structure is initialized.
 - Project-level path configuration is available in `src/leafsignal/config.py`.
 - Example training settings are documented in `configs/training.example.yaml`.
+- Dataset preparation notes are documented in `docs/dataset.md`.
 - Tests and quality-tool configuration are ready for local validation.
 - No Azure integration, dataset download, model training, deployment, web interface, or CI/CD has been implemented.
 
@@ -58,6 +60,23 @@ To run commands inside the Poetry environment:
 poetry run pytest
 poetry run ruff check .
 poetry run mypy src
+```
+
+## Dataset Preparation
+
+See `docs/dataset.md` for the expected folder structure, limitations, and local
+manifest workflow.
+
+Inspect a local directory-based dataset:
+
+```powershell
+poetry run python -m leafsignal.data.cli inspect --data-dir data/raw/plantvillage_tomato_color
+```
+
+Generate a stratified manifest from valid images:
+
+```powershell
+poetry run python -m leafsignal.data.cli split --data-dir data/raw/plantvillage_tomato_color --output data/processed/dataset_manifest.csv
 ```
 
 ## Repository Structure
