@@ -139,6 +139,11 @@ def _write_training_files(
                 "num_workers: 0",
                 "pretrained: false",
                 "freeze_backbone: false",
+                "optimizer_name: adamw",
+                "weight_decay: 0.0001",
+                "early_stopping_patience: 0",
+                "device: cpu",
+                "output_dir: artifacts/training/smoke-test",
             ]
         )
         + "\n",

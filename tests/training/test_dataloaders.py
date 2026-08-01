@@ -110,6 +110,11 @@ def _config(batch_size: int, image_size: int, random_seed: int) -> TrainingConfi
         num_workers=0,
         pretrained=False,
         freeze_backbone=False,
+        optimizer_name="adamw",
+        weight_decay=0.0001,
+        early_stopping_patience=0,
+        device="cpu",
+        output_dir=Path("artifacts/training/test"),
     )
 
 

@@ -34,6 +34,14 @@ class SplitDataLoaders:
     test: DataLoader[tuple[Tensor, int]]
 
 
+@dataclass(frozen=True, slots=True)
+class TrainValidationDataLoaders:
+    """Train and validation DataLoaders for model selection."""
+
+    train: DataLoader[tuple[Tensor, int]]
+    validation: DataLoader[tuple[Tensor, int]]
+
+
 def create_dataloaders(
     records: tuple[ManifestRecord, ...],
     data_dir: Path,
@@ -68,6 +76,38 @@ def create_dataloaders(
             data_dir=data_dir,
             class_mapping=class_mapping,
             split="test",
+            batch_size=config.batch_size,
+            num_workers=config.num_workers,
+            random_seed=config.random_seed,
+            image_size=config.image_size,
+        ),
+    )
+
+
+def create_train_validation_dataloaders(
+    records: tuple[ManifestRecord, ...],
+    data_dir: Path,
+    class_mapping: ClassMapping,
+    config: TrainingConfig,
+) -> TrainValidationDataLoaders:
+    """Create only the train and validation DataLoaders used during training."""
+
+    return TrainValidationDataLoaders(
+        train=create_dataloader(
+            records=records,
+            data_dir=data_dir,
+            class_mapping=class_mapping,
+            split="train",
+            batch_size=config.batch_size,
+            num_workers=config.num_workers,
+            random_seed=config.random_seed,
+            image_size=config.image_size,
+        ),
+        validation=create_dataloader(
+            records=records,
+            data_dir=data_dir,
+            class_mapping=class_mapping,
+            split="validation",
             batch_size=config.batch_size,
             num_workers=config.num_workers,
             random_seed=config.random_seed,

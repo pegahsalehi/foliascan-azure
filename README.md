@@ -8,8 +8,9 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project is in Phase 2A: local baseline data and model foundation. Phase 1B2,
-official PlantVillage ingestion and leakage-safe split preparation, is complete.
+The project is in Phase 2B: local baseline model training. Phase 1B2, official
+PlantVillage ingestion and leakage-safe split preparation, is complete. Phase
+2A, local baseline data and model foundation, is complete.
 
 Current status:
 
@@ -111,7 +112,7 @@ poetry run python -m foliascan.data.cli split `
 ## Local Training Foundation
 
 See `docs/training.md` for the manifest-driven PyTorch data pipeline, class
-mapping, ResNet18 model factory, and smoke-test workflow.
+mapping, ResNet18 model factory, smoke-test workflow, and local training loop.
 
 Run a forward-pass smoke test without training the model:
 
@@ -121,6 +122,15 @@ poetry run python -m foliascan.training.smoke_test `
   --data-dir data/raw/plantvillage_tomato_color `
   --config configs/training.example.yaml `
   --split train
+```
+
+Train the local baseline without using the test split for model selection:
+
+```powershell
+poetry run python -m foliascan.training.train `
+  --manifest data/processed/dataset_manifest.csv `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --config configs/training.example.yaml
 ```
 
 ## Repository Structure
