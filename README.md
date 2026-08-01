@@ -8,7 +8,7 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project is in Phase 1B: local dataset preparation and validation, within Phase 1: Local project foundation.
+The project is in Phase 1B: local dataset preparation and validation, within Phase 1: Local project foundation. Phase 1B2, official PlantVillage ingestion and leakage-safe split preparation, is in progress.
 
 Current status:
 
@@ -17,6 +17,8 @@ Current status:
 - Project-level path configuration is available in `src/foliascan/config.py`.
 - Example training settings are documented in `configs/training.example.yaml`.
 - Dataset preparation notes are documented in `docs/dataset.md`.
+- The planned official dataset source is `mohanty/PlantVillage` on Hugging Face,
+  using the `color` configuration and the Tomato-only subset.
 - Tests and quality-tool configuration are ready for local validation.
 - No Azure integration, dataset download, model training, deployment, web interface, or CI/CD has been implemented.
 
@@ -64,8 +66,30 @@ poetry run mypy src
 
 ## Dataset Preparation
 
-See `docs/dataset.md` for the expected folder structure, limitations, and local
-manifest workflow.
+See `docs/dataset.md` for the official PlantVillage source, expected folder
+structure, limitations, and local manifest workflow.
+
+Export the official PlantVillage Tomato color subset:
+
+```powershell
+poetry run python -m foliascan.data.cli plantvillage-export `
+  --output-dir data/raw/plantvillage_tomato_color `
+  --source-manifest data/processed/plantvillage_source_manifest.csv
+```
+
+Create the leakage-safe FoliaScan manifest:
+
+```powershell
+poetry run python -m foliascan.data.cli plantvillage-split `
+  --source-manifest data/processed/plantvillage_source_manifest.csv `
+  --output data/processed/dataset_manifest.csv `
+  --validation-ratio 0.15 `
+  --random-seed 42
+```
+
+The generic split command below remains available for simple folder-based
+datasets. It is not used for PlantVillage because PlantVillage requires
+`leaf_id` group-aware splitting and preservation of the official test split.
 
 Inspect a local directory-based dataset:
 
