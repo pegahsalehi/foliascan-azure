@@ -8,7 +8,8 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project is in Phase 1B: local dataset preparation and validation, within Phase 1: Local project foundation. Phase 1B2, official PlantVillage ingestion and leakage-safe split preparation, is in progress.
+The project is in Phase 2A: local baseline data and model foundation. Phase 1B2,
+official PlantVillage ingestion and leakage-safe split preparation, is complete.
 
 Current status:
 
@@ -17,10 +18,11 @@ Current status:
 - Project-level path configuration is available in `src/foliascan/config.py`.
 - Example training settings are documented in `configs/training.example.yaml`.
 - Dataset preparation notes are documented in `docs/dataset.md`.
+- Local training foundation notes are documented in `docs/training.md`.
 - The planned official dataset source is `mohanty/PlantVillage` on Hugging Face,
   using the `color` configuration and the Tomato-only subset.
 - Tests and quality-tool configuration are ready for local validation.
-- No Azure integration, dataset download, model training, deployment, web interface, or CI/CD has been implemented.
+- No Azure integration, model training, deployment, web interface, or CI/CD has been implemented.
 
 ## Planned Workflow
 
@@ -104,6 +106,21 @@ Generate a stratified manifest from valid images:
 poetry run python -m foliascan.data.cli split `
   --data-dir data/raw/plantvillage_tomato_color `
   --output data/processed/dataset_manifest.csv
+```
+
+## Local Training Foundation
+
+See `docs/training.md` for the manifest-driven PyTorch data pipeline, class
+mapping, ResNet18 model factory, and smoke-test workflow.
+
+Run a forward-pass smoke test without training the model:
+
+```powershell
+poetry run python -m foliascan.training.smoke_test `
+  --manifest data/processed/dataset_manifest.csv `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --config configs/training.example.yaml `
+  --split train
 ```
 
 ## Repository Structure
