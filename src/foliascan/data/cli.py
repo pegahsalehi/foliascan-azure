@@ -12,6 +12,12 @@ from foliascan.data.discovery import (
     discover_class_names,
     discover_image_records,
 )
+from foliascan.data.plantvillage import (
+    PlantVillageError,
+    create_and_write_leaf_group_manifest,
+    export_tomato_subset,
+    manifest_counts_by_split,
+)
 from foliascan.data.splitting import (
     create_split_assignments,
     split_counts,
@@ -36,7 +42,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_inspect(args)
         if args.command == "split":
             return _run_split(args)
-    except (DatasetDiscoveryError, FileExistsError, OSError, ValueError) as exc:
+        if args.command == "plantvillage-export":
+            return _run_plantvillage_export(args)
+        if args.command == "plantvillage-split":
+            return _run_plantvillage_split(args)
+    except (
+        DatasetDiscoveryError,
+        FileExistsError,
+        OSError,
+        PlantVillageError,
+        ValueError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
@@ -93,6 +109,57 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Allow replacing an existing manifest file.",
     )
 
+    export_parser = subparsers.add_parser(
+        "plantvillage-export",
+        help="Download and export the official PlantVillage Tomato color subset.",
+    )
+    export_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="Directory for exported Tomato class folders.",
+    )
+    export_parser.add_argument(
+        "--source-manifest",
+        type=Path,
+        required=True,
+        help="CSV source manifest output path.",
+    )
+    export_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Allow replacing existing exported images and source manifest.",
+    )
+
+    plantvillage_split_parser = subparsers.add_parser(
+        "plantvillage-split",
+        help="Create a leakage-safe FoliaScan manifest from a source manifest.",
+    )
+    plantvillage_split_parser.add_argument(
+        "--source-manifest",
+        type=Path,
+        required=True,
+        help="CSV manifest created by plantvillage-export.",
+    )
+    plantvillage_split_parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="CSV FoliaScan dataset manifest output path.",
+    )
+    plantvillage_split_parser.add_argument(
+        "--validation-ratio",
+        type=float,
+        default=0.15,
+        help="Validation ratio applied only to official training leaf groups.",
+    )
+    plantvillage_split_parser.add_argument("--random-seed", type=int, default=42)
+    plantvillage_split_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Allow replacing an existing FoliaScan manifest file.",
+    )
+
     return parser
 
 
@@ -138,6 +205,52 @@ def _run_split(args: argparse.Namespace) -> int:
     print(f"Manifest written: {output_path}")
     for count_record in split_counts(split_records):
         print(f"{count_record.key}: {count_record.count}")
+
+    return 0
+
+
+def _run_plantvillage_export(args: argparse.Namespace) -> int:
+    output_dir = _namespace_path(args, "output_dir")
+    source_manifest = _namespace_path(args, "source_manifest")
+
+    print(
+        "Warning: this command downloads the official PlantVillage color dataset "
+        "from Hugging Face and may download multiple gigabytes."
+    )
+    summary = export_tomato_subset(
+        output_dir=output_dir,
+        source_manifest_path=source_manifest,
+        overwrite=_namespace_bool(args, "overwrite"),
+    )
+
+    print("PlantVillage export complete")
+    print(f"Dataset: {summary.dataset_id} ({summary.dataset_config})")
+    print(f"Output directory: {summary.output_dir}")
+    print(f"Source manifest: {summary.source_manifest_path}")
+    print(f"Image format: {summary.image_format}")
+    print(f"Tomato records exported: {summary.tomato_records_exported}")
+    for source_split, count in summary.source_split_counts:
+        print(f"official {source_split}: {count}")
+
+    return 0
+
+
+def _run_plantvillage_split(args: argparse.Namespace) -> int:
+    source_manifest = _namespace_path(args, "source_manifest")
+    output_path = _namespace_path(args, "output")
+    records = create_and_write_leaf_group_manifest(
+        source_manifest_path=source_manifest,
+        output_path=output_path,
+        validation_ratio=_namespace_float(args, "validation_ratio"),
+        random_seed=_namespace_int(args, "random_seed"),
+        overwrite=_namespace_bool(args, "overwrite"),
+    )
+
+    print("PlantVillage leaf-group split complete")
+    print(f"Source manifest: {source_manifest}")
+    print(f"FoliaScan manifest: {output_path}")
+    for split_name, count in manifest_counts_by_split(records):
+        print(f"{split_name}: {count}")
 
     return 0
 
