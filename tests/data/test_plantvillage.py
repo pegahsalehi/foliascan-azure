@@ -9,7 +9,8 @@ from foliascan.data import cli
 from foliascan.data.plantvillage import (
     DATASET_CONFIG,
     DATASET_ID,
-    HUGGINGFACE_BUILDER_CONFIG,
+    HUGGINGFACE_SCRIPT_BUILDER_CONFIG,
+    HUGGINGFACE_SCRIPT_FILENAME,
     FoliaScanManifestRecord,
     PlantVillageError,
     PlantVillageExportSummary,
@@ -17,6 +18,7 @@ from foliascan.data.plantvillage import (
     create_leaf_group_manifest,
     export_tomato_subset,
     load_official_plantvillage_dataset,
+    normalize_plantvillage_records,
     read_source_manifest,
     write_foliascan_manifest,
 )
@@ -24,28 +26,84 @@ from foliascan.data.plantvillage import (
 EXPECTED_CLASSES = ("Tomato___Bacterial_spot", "Tomato___healthy")
 
 
-def test_load_official_plantvillage_dataset_uses_default_huggingface_builder(
+def test_load_official_plantvillage_dataset_downloads_official_script(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sentinel_dataset = object()
-    calls: list[tuple[str, str, bool]] = []
+    downloaded_script_path = str(tmp_path / HUGGINGFACE_SCRIPT_FILENAME)
+    hub_calls: list[tuple[str, str, str]] = []
+    dataset_calls: list[tuple[str, str, bool]] = []
+
+    def fake_hf_hub_download(
+        *,
+        repo_id: str,
+        filename: str,
+        repo_type: str,
+    ) -> str:
+        hub_calls.append((repo_id, filename, repo_type))
+        return downloaded_script_path
 
     def fake_load_dataset(
-        dataset_id: str,
+        dataset_path: str,
         builder_config: str,
         *,
         trust_remote_code: bool,
     ) -> object:
-        calls.append((dataset_id, builder_config, trust_remote_code))
+        dataset_calls.append((dataset_path, builder_config, trust_remote_code))
         return sentinel_dataset
 
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", fake_hf_hub_download)
     monkeypatch.setattr("datasets.load_dataset", fake_load_dataset)
 
     dataset = load_official_plantvillage_dataset()
 
     assert dataset is sentinel_dataset
     assert DATASET_CONFIG == "color"
-    assert calls == [(DATASET_ID, HUGGINGFACE_BUILDER_CONFIG, True)]
+    assert hub_calls == [(DATASET_ID, HUGGINGFACE_SCRIPT_FILENAME, "dataset")]
+    assert dataset_calls == [
+        (downloaded_script_path, HUGGINGFACE_SCRIPT_BUILDER_CONFIG, True)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("missing_field", "error_match"),
+    [
+        ("image", "image"),
+        ("crop", "crop"),
+        ("disease", "disease"),
+        ("leaf_id", "leaf_id"),
+    ],
+)
+def test_normalize_plantvillage_records_requires_official_schema_fields(
+    missing_field: str,
+    error_match: str,
+) -> None:
+    row: dict[str, object] = {
+        "image": Image.new("RGB", (4, 4)),
+        "label": 0,
+        "crop": "Tomato",
+        "disease": "healthy",
+        "leaf_id": "leaf a",
+    }
+    del row[missing_field]
+    dataset = {
+        "train": _FakeSplit([row], ["Tomato___healthy"]),
+        "test": _FakeSplit([], ["Tomato___healthy"]),
+    }
+
+    with pytest.raises(PlantVillageError, match=error_match):
+        normalize_plantvillage_records(dataset)
+
+
+def test_normalize_plantvillage_records_rejects_text_only_rows() -> None:
+    dataset = {
+        "train": _FakeSplit([{"text": "color_train/Tomato___healthy/example.jpg"}], []),
+        "test": _FakeSplit([], []),
+    }
+
+    with pytest.raises(PlantVillageError, match="class metadata"):
+        normalize_plantvillage_records(dataset)
 
 
 def test_export_filters_tomato_writes_rgb_jpegs_and_source_manifest(

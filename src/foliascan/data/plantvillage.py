@@ -20,7 +20,8 @@ DatasetRows: TypeAlias = Mapping[str, Iterable[Mapping[str, object]]]
 
 DATASET_ID: Final[str] = "mohanty/PlantVillage"
 DATASET_CONFIG: Final[str] = "color"
-HUGGINGFACE_BUILDER_CONFIG: Final[str] = "default"
+HUGGINGFACE_SCRIPT_FILENAME: Final[str] = "plant_village.py"
+HUGGINGFACE_SCRIPT_BUILDER_CONFIG: Final[str] = "default"
 CROP_NAME: Final[str] = "Tomato"
 IMAGE_FORMAT: Final[str] = "JPEG"
 IMAGE_EXTENSION: Final[str] = ".jpg"
@@ -108,11 +109,17 @@ def load_official_plantvillage_dataset() -> Any:
     """Load the official Hugging Face PlantVillage color dataset."""
 
     from datasets import load_dataset  # type: ignore[import-untyped]
+    from huggingface_hub import hf_hub_download
 
     # The current upstream builder maps "default" to the color image variant.
+    dataset_script_path = hf_hub_download(
+        repo_id=DATASET_ID,
+        filename=HUGGINGFACE_SCRIPT_FILENAME,
+        repo_type="dataset",
+    )
     return load_dataset(
-        DATASET_ID,
-        HUGGINGFACE_BUILDER_CONFIG,
+        dataset_script_path,
+        HUGGINGFACE_SCRIPT_BUILDER_CONFIG,
         trust_remote_code=True,
     )
 
