@@ -1,0 +1,2 @@
+"""Training foundations for FoliaScan."""
+
