@@ -9,17 +9,43 @@ from foliascan.data import cli
 from foliascan.data.plantvillage import (
     DATASET_CONFIG,
     DATASET_ID,
+    HUGGINGFACE_BUILDER_CONFIG,
     FoliaScanManifestRecord,
     PlantVillageError,
     PlantVillageExportSummary,
     SourceManifestRecord,
     create_leaf_group_manifest,
     export_tomato_subset,
+    load_official_plantvillage_dataset,
     read_source_manifest,
     write_foliascan_manifest,
 )
 
 EXPECTED_CLASSES = ("Tomato___Bacterial_spot", "Tomato___healthy")
+
+
+def test_load_official_plantvillage_dataset_uses_default_huggingface_builder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sentinel_dataset = object()
+    calls: list[tuple[str, str, bool]] = []
+
+    def fake_load_dataset(
+        dataset_id: str,
+        builder_config: str,
+        *,
+        trust_remote_code: bool,
+    ) -> object:
+        calls.append((dataset_id, builder_config, trust_remote_code))
+        return sentinel_dataset
+
+    monkeypatch.setattr("datasets.load_dataset", fake_load_dataset)
+
+    dataset = load_official_plantvillage_dataset()
+
+    assert dataset is sentinel_dataset
+    assert DATASET_CONFIG == "color"
+    assert calls == [(DATASET_ID, HUGGINGFACE_BUILDER_CONFIG, True)]
 
 
 def test_export_filters_tomato_writes_rgb_jpegs_and_source_manifest(

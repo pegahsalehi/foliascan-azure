@@ -20,6 +20,7 @@ DatasetRows: TypeAlias = Mapping[str, Iterable[Mapping[str, object]]]
 
 DATASET_ID: Final[str] = "mohanty/PlantVillage"
 DATASET_CONFIG: Final[str] = "color"
+HUGGINGFACE_BUILDER_CONFIG: Final[str] = "default"
 CROP_NAME: Final[str] = "Tomato"
 IMAGE_FORMAT: Final[str] = "JPEG"
 IMAGE_EXTENSION: Final[str] = ".jpg"
@@ -108,7 +109,12 @@ def load_official_plantvillage_dataset() -> Any:
 
     from datasets import load_dataset  # type: ignore[import-untyped]
 
-    return load_dataset(DATASET_ID, DATASET_CONFIG, trust_remote_code=True)
+    # The current upstream builder maps "default" to the color image variant.
+    return load_dataset(
+        DATASET_ID,
+        HUGGINGFACE_BUILDER_CONFIG,
+        trust_remote_code=True,
+    )
 
 
 def export_tomato_subset(
