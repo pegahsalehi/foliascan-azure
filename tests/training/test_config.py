@@ -24,6 +24,11 @@ def test_load_training_config_returns_immutable_typed_config(tmp_path: Path) -> 
                 "num_workers: 0",
                 "pretrained: false",
                 "freeze_backbone: true",
+                "optimizer_name: adamw",
+                "weight_decay: 0.0001",
+                "early_stopping_patience: 3",
+                "device: auto",
+                "output_dir: artifacts/training/baseline",
             ]
         )
         + "\n",
@@ -42,6 +47,11 @@ def test_load_training_config_returns_immutable_typed_config(tmp_path: Path) -> 
         num_workers=0,
         pretrained=False,
         freeze_backbone=True,
+        optimizer_name="adamw",
+        weight_decay=0.0001,
+        early_stopping_patience=3,
+        device="auto",
+        output_dir=Path("artifacts/training/baseline"),
     )
 
 
@@ -57,6 +67,11 @@ def test_training_config_rejects_missing_field() -> None:
                 "num_workers": 0,
                 "pretrained": False,
                 "freeze_backbone": False,
+                "optimizer_name": "adamw",
+                "weight_decay": 0.0001,
+                "early_stopping_patience": 3,
+                "device": "auto",
+                "output_dir": "artifacts/training/baseline",
             }
         )
 
@@ -72,6 +87,11 @@ def test_training_config_rejects_missing_field() -> None:
         ("pretrained", "no", "true or false"),
         ("freeze_backbone", "yes", "true or false"),
         ("model_name", "", "non-empty string"),
+        ("optimizer_name", "sgd", "Unsupported optimizer_name"),
+        ("weight_decay", -0.1, "non-negative number"),
+        ("early_stopping_patience", -1, "non-negative integer"),
+        ("device", "tpu", "Unsupported device"),
+        ("output_dir", 123, "path string"),
     ],
 )
 def test_training_config_rejects_invalid_values(
@@ -89,6 +109,11 @@ def test_training_config_rejects_invalid_values(
         "num_workers": 0,
         "pretrained": False,
         "freeze_backbone": False,
+        "optimizer_name": "adamw",
+        "weight_decay": 0.0001,
+        "early_stopping_patience": 3,
+        "device": "auto",
+        "output_dir": "artifacts/training/baseline",
     }
     config[field_name] = value
 
