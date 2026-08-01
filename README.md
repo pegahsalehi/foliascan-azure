@@ -8,9 +8,11 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project is in Phase 2B: local baseline model training. Phase 1B2, official
-PlantVillage ingestion and leakage-safe split preparation, is complete. Phase
-2A, local baseline data and model foundation, is complete.
+The project is in Phase 1.6: final local test evaluation and error-analysis
+tooling is in progress. Phase 1B2, official PlantVillage ingestion and
+leakage-safe split preparation, is complete. Local baseline training has
+produced a selected checkpoint, but final test-set results have not been
+reported yet.
 
 Current status:
 
@@ -20,10 +22,11 @@ Current status:
 - Example training settings are documented in `configs/training.example.yaml`.
 - Dataset preparation notes are documented in `docs/dataset.md`.
 - Local training foundation notes are documented in `docs/training.md`.
+- Final evaluation notes are documented in `docs/evaluation.md`.
 - The planned official dataset source is `mohanty/PlantVillage` on Hugging Face,
   using the `color` configuration and the Tomato-only subset.
 - Tests and quality-tool configuration are ready for local validation.
-- No Azure integration, model training, deployment, web interface, or CI/CD has been implemented.
+- No Azure integration, deployment, web interface, or CI/CD has been implemented.
 
 ## Planned Workflow
 
@@ -132,6 +135,25 @@ poetry run python -m foliascan.training.train `
   --data-dir data/raw/plantvillage_tomato_color `
   --config configs/training.example.yaml
 ```
+
+## Final Test Evaluation
+
+See `docs/evaluation.md` for the final test-set evaluation workflow, metrics,
+confusion-matrix outputs, and error-analysis reports.
+
+Run the selected checkpoint on the untouched test split:
+
+```powershell
+poetry run python -m foliascan.evaluation.evaluate `
+  --manifest data/processed/dataset_manifest.csv `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --checkpoint artifacts/training/resnet18_baseline_v1/best_model.pt `
+  --output-dir artifacts/evaluation/resnet18_baseline_v1 `
+  --device cuda
+```
+
+Do not use final test results for repeated model tuning or checkpoint
+selection.
 
 ## Repository Structure
 
