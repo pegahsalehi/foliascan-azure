@@ -285,13 +285,19 @@ def create_leaf_group_manifest(
 
     _validate_source_manifest_records(source_records)
     _validate_expected_classes(source_records, expected_classes)
+    official_test_leaf_ids = _official_test_leaf_ids(source_records)
     train_source_records = tuple(
         record for record in source_records if record.source_split == "train"
     )
     _validate_leaf_classes(train_source_records)
+    train_validation_source_records = tuple(
+        record
+        for record in train_source_records
+        if record.leaf_id not in official_test_leaf_ids
+    )
 
     leaf_split_by_id = _assign_train_validation_leaf_groups(
-        train_source_records,
+        train_validation_source_records,
         validation_ratio=validation_ratio,
         random_seed=random_seed,
     )
@@ -300,7 +306,7 @@ def create_leaf_group_manifest(
     for record in source_records:
         split: PlantVillageSplit = (
             "test"
-            if record.source_split == "test"
+            if record.leaf_id in official_test_leaf_ids
             else leaf_split_by_id[record.leaf_id]
         )
         foliascan_records.append(
@@ -393,6 +399,7 @@ def validate_leaf_group_manifest(
         msg = "Every exported source record must appear exactly once in the manifest."
         raise PlantVillageError(msg)
 
+    official_test_leaf_ids = _official_test_leaf_ids(source_records)
     splits_by_leaf_id: defaultdict[str, set[PlantVillageSplit]] = defaultdict(set)
     for record in records:
         if record.relative_path.is_absolute():
@@ -405,10 +412,15 @@ def validate_leaf_group_manifest(
                 f"FoliaScan test split: {record.relative_path}"
             )
             raise PlantVillageError(msg)
-        if source_record.source_split == "train" and record.split == "test":
+        if (
+            source_record.source_split == "train"
+            and record.split == "test"
+            and source_record.leaf_id not in official_test_leaf_ids
+        ):
             msg = (
-                "Official PlantVillage training records may only be split into "
-                f"train or validation: {record.relative_path}"
+                "Official PlantVillage training records may only move to "
+                "FoliaScan test when their leaf_id also appears in the official "
+                f"test split: {record.relative_path}"
             )
             raise PlantVillageError(msg)
         splits_by_leaf_id[record.leaf_id].add(record.split)
@@ -431,6 +443,10 @@ def manifest_counts_by_split(
     counter: Counter[PlantVillageSplit] = Counter(record.split for record in records)
     split_names: tuple[PlantVillageSplit, ...] = ("train", "validation", "test")
     return tuple((split, counter[split]) for split in split_names)
+
+
+def _official_test_leaf_ids(records: Sequence[SourceManifestRecord]) -> set[str]:
+    return {record.leaf_id for record in records if record.source_split == "test"}
 
 
 def _iter_dataset_rows(dataset: Any) -> dict[str, Iterable[Mapping[str, object]]]:

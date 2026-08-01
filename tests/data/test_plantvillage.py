@@ -20,6 +20,7 @@ from foliascan.data.plantvillage import (
     load_official_plantvillage_dataset,
     normalize_plantvillage_records,
     read_source_manifest,
+    validate_leaf_group_manifest,
     write_foliascan_manifest,
 )
 
@@ -235,6 +236,90 @@ def test_leaf_group_split_preserves_official_test_and_leaf_groups() -> None:
         ("Tomato___Bacterial_spot", "train"),
         ("Tomato___Bacterial_spot", "validation"),
     }
+
+
+def test_leaf_group_split_uses_official_test_precedence_for_shared_leaf_ids() -> None:
+    source_records = _source_records_with_official_test_conflict()
+
+    first = create_leaf_group_manifest(
+        source_records,
+        validation_ratio=0.34,
+        random_seed=7,
+        expected_classes=EXPECTED_CLASSES,
+    )
+    second = create_leaf_group_manifest(
+        source_records,
+        validation_ratio=0.34,
+        random_seed=7,
+        expected_classes=EXPECTED_CLASSES,
+    )
+
+    records_by_path = {record.relative_path.as_posix(): record for record in first}
+    source_paths = {record.relative_path.as_posix() for record in source_records}
+    conflict_records = tuple(
+        record for record in first if record.leaf_id == "shared_leaf"
+    )
+    unrelated_train_splits = {
+        record.split
+        for record in first
+        if record.source_split == "train" and record.leaf_id != "shared_leaf"
+    }
+
+    assert first == second
+    assert len(first) == len(source_records)
+    assert set(records_by_path) == source_paths
+    assert len(conflict_records) == 2
+    assert {record.source_split for record in conflict_records} == {"train", "test"}
+    assert all(record.split == "test" for record in conflict_records)
+    assert records_by_path[
+        "Tomato___healthy/train_shared_leaf.jpg"
+    ].source_split == "train"
+    assert records_by_path["Tomato___healthy/train_shared_leaf.jpg"].split == "test"
+    assert all(
+        record.split == "test" for record in first if record.source_split == "test"
+    )
+    assert all(len(splits) == 1 for splits in _splits_by_leaf_id(first).values())
+    assert unrelated_train_splits == {"train", "validation"}
+
+
+def test_validate_leaf_group_manifest_rejects_unjustified_train_to_test() -> None:
+    source_records = (
+        SourceManifestRecord(
+            Path("Tomato___healthy/train_h1.jpg"),
+            "Tomato___healthy",
+            "train",
+            "h1",
+        ),
+        SourceManifestRecord(
+            Path("Tomato___healthy/test_h2.jpg"),
+            "Tomato___healthy",
+            "test",
+            "h2",
+        ),
+    )
+    records = (
+        FoliaScanManifestRecord(
+            Path("Tomato___healthy/train_h1.jpg"),
+            "Tomato___healthy",
+            "test",
+            "h1",
+            "train",
+        ),
+        FoliaScanManifestRecord(
+            Path("Tomato___healthy/test_h2.jpg"),
+            "Tomato___healthy",
+            "test",
+            "h2",
+            "test",
+        ),
+    )
+
+    with pytest.raises(PlantVillageError, match="leaf_id also appears"):
+        validate_leaf_group_manifest(
+            records,
+            source_records,
+            expected_classes=("Tomato___healthy",),
+        )
 
 
 def test_leaf_group_split_rejects_too_few_leaf_groups() -> None:
@@ -489,6 +574,55 @@ def _source_records() -> tuple[SourceManifestRecord, ...]:
     rows = [
         ("Tomato___healthy/train_h1_a.jpg", "Tomato___healthy", "train", "h1"),
         ("Tomato___healthy/train_h1_b.jpg", "Tomato___healthy", "train", "h1"),
+        ("Tomato___healthy/train_h2.jpg", "Tomato___healthy", "train", "h2"),
+        ("Tomato___healthy/train_h3.jpg", "Tomato___healthy", "train", "h3"),
+        ("Tomato___healthy/test_h4.jpg", "Tomato___healthy", "test", "h4"),
+        (
+            "Tomato___Bacterial_spot/train_b1.jpg",
+            "Tomato___Bacterial_spot",
+            "train",
+            "b1",
+        ),
+        (
+            "Tomato___Bacterial_spot/train_b2.jpg",
+            "Tomato___Bacterial_spot",
+            "train",
+            "b2",
+        ),
+        (
+            "Tomato___Bacterial_spot/train_b3.jpg",
+            "Tomato___Bacterial_spot",
+            "train",
+            "b3",
+        ),
+        (
+            "Tomato___Bacterial_spot/test_b4.jpg",
+            "Tomato___Bacterial_spot",
+            "test",
+            "b4",
+        ),
+    ]
+    return tuple(
+        SourceManifestRecord(Path(path), class_name, source_split, leaf_id)
+        for path, class_name, source_split, leaf_id in rows
+    )
+
+
+def _source_records_with_official_test_conflict() -> tuple[SourceManifestRecord, ...]:
+    rows = [
+        (
+            "Tomato___healthy/train_shared_leaf.jpg",
+            "Tomato___healthy",
+            "train",
+            "shared_leaf",
+        ),
+        (
+            "Tomato___healthy/test_shared_leaf.jpg",
+            "Tomato___healthy",
+            "test",
+            "shared_leaf",
+        ),
+        ("Tomato___healthy/train_h1.jpg", "Tomato___healthy", "train", "h1"),
         ("Tomato___healthy/train_h2.jpg", "Tomato___healthy", "train", "h2"),
         ("Tomato___healthy/train_h3.jpg", "Tomato___healthy", "train", "h3"),
         ("Tomato___healthy/test_h4.jpg", "Tomato___healthy", "test", "h4"),

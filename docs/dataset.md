@@ -32,9 +32,17 @@ hard-coded numeric label IDs.
 ## Leaf-Group Splitting
 
 PlantVillage provides a `leaf_id` so images from the same physical leaf can stay
-together. FoliaScan preserves the official PlantVillage `test` split exactly.
-Only official `train` records are divided into FoliaScan `train` and
-`validation` subsets.
+together. FoliaScan preserves every official PlantVillage `test` record as
+`test`. Real upstream data can contain a small number of fallback leaf IDs that
+appear in both official `train` and official `test`. FoliaScan applies test
+precedence to those groups: every record sharing an official-test `leaf_id` is
+assigned to final `test`.
+
+This may move a small number of official-training records into the final
+FoliaScan `test` split. The original `source_split` value is retained, so those
+records remain auditable as `source_split=train` and `split=test`. Official
+training leaf IDs that are absent from official `test` are divided into
+FoliaScan `train` and `validation` subsets.
 
 This prevents leakage: if augmented or related views of the same leaf appeared
 in different splits, validation or test metrics could overstate model quality.
