@@ -1,0 +1,20 @@
+$schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
+
+name: cpu-fs-dev
+type: amlcompute
+description: CPU compute cluster for FoliaScan tests and lightweight processing.
+
+size: Standard_DS3_v2
+tier: dedicated
+
+min_instances: 0
+max_instances: 1
+idle_time_before_scale_down: 120
+
+ssh_public_access_enabled: false
+
+tags:
+  project: foliascan
+  environment: dev
+  workload: cpu
+  managed-by: azure-ml-cli
