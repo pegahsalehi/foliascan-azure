@@ -85,6 +85,27 @@ def test_evaluate_one_epoch_calculates_sample_weighted_metrics() -> None:
     assert metrics.accuracy == pytest.approx(2 / 3)
 
 
+def test_epoch_loops_limit_processed_batches_and_sample_counts() -> None:
+    model = _ZeroLogitModel()
+    loss_fn = nn.CrossEntropyLoss()
+    dataloader = [
+        (torch.ones((2, 2)), torch.tensor([0, 1])),
+        (torch.ones((3, 2)), torch.tensor([0, 1, 0])),
+    ]
+
+    metrics = evaluate_one_epoch(
+        model=model,
+        dataloader=dataloader,
+        loss_fn=loss_fn,
+        device=torch.device("cpu"),
+        max_batches=1,
+    )
+
+    assert metrics.sample_count == 2
+    assert metrics.batch_count == 1
+    assert metrics.average_loss == pytest.approx(math.log(2))
+
+
 def test_epoch_metrics_reject_empty_dataloader() -> None:
     with pytest.raises(TrainingEngineError, match="empty"):
         evaluate_one_epoch(
@@ -92,6 +113,19 @@ def test_epoch_metrics_reject_empty_dataloader() -> None:
             dataloader=[],
             loss_fn=nn.CrossEntropyLoss(),
             device=torch.device("cpu"),
+        )
+
+
+def test_epoch_loops_reject_invalid_batch_limits() -> None:
+    with pytest.raises(TrainingEngineError, match="positive integer"):
+        evaluate_one_epoch(
+            model=_ZeroLogitModel(),
+            dataloader=[
+                (torch.ones((1, 2)), torch.tensor([0])),
+            ],
+            loss_fn=nn.CrossEntropyLoss(),
+            device=torch.device("cpu"),
+            max_batches=0,
         )
 
 

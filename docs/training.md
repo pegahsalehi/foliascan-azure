@@ -2,8 +2,10 @@
 
 Phase 2A added the local data and model foundation for a simple image
 classification baseline. Phase 2B adds local training and validation for that
-baseline. It does not calculate final test accuracy, register models, deploy
-inference endpoints, or touch Azure services.
+baseline. Phase 4.2 keeps the same entry point usable when Azure ML command
+jobs provide mounted input and output paths. It does not submit Azure jobs,
+calculate final test accuracy, register models, deploy inference endpoints, or
+add MLflow tracking.
 
 ## Baseline Model
 
@@ -89,6 +91,24 @@ poetry run python -m foliascan.training.train `
   --output-dir artifacts/training/one_epoch_check
 ```
 
+For a tiny smoke-test training pass, limit the number of batches processed per
+epoch:
+
+```powershell
+poetry run python -m foliascan.training.train `
+  --manifest data/processed/dataset_manifest.csv `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --config configs/training.example.yaml `
+  --epochs 1 `
+  --max-train-batches 2 `
+  --max-validation-batches 1 `
+  --output-dir artifacts/training/batch_limit_check
+```
+
+The batch limits must be positive integers when supplied. Omitting them
+processes every batch. The limits cap only processed batches; they do not alter
+the dataset manifest or change train, validation, or test split assignments.
+
 The training loop uses `torch.nn.CrossEntropyLoss` for multi-class
 classification and AdamW for optimization. AdamW starts as the only supported
 optimizer because it is a practical, stable default for transfer-learning
@@ -99,10 +119,51 @@ checkpointing, and early stopping. Test records are not loaded by the training
 loop and must not be used for model selection; final test evaluation is a later
 phase.
 
+## Azure ML Command-Job Inputs
+
+Azure ML command jobs can mount registered data assets into job-specific paths.
+For FoliaScan, the expected registered assets are:
+
+- `foliascan-tomato-images:1` as a `uri_folder`
+- `foliascan-dataset-manifest:1` as a `uri_file`
+- `foliascan-source-manifest:1` as a `uri_file`
+
+Phase 4.2 reuses `python -m foliascan.training.train` instead of adding a
+second training program. Reusing the existing entry point keeps the model,
+dataset, DataLoader, engine, checkpoint, and orchestration logic in one place
+for local and future Azure runs.
+
+The training command accepts arbitrary mounted paths for:
+
+- `--data-dir`: mounted image directory
+- `--manifest`: mounted FoliaScan dataset manifest file
+- `--config`: local YAML file included with the submitted code
+- `--output-dir`: Azure-managed output directory
+
+The path arguments are used as supplied. They are not resolved relative to
+`PROJECT_ROOT`, so Linux mount paths such as `/mnt/azureml/...` work when the
+same command runs inside an Azure ML job container.
+
+An Azure-style command would have this shape inside the job:
+
+```bash
+python -m foliascan.training.train \
+  --manifest /mnt/azureml/inputs/manifest/dataset_manifest.csv \
+  --data-dir /mnt/azureml/inputs/images \
+  --config configs/training.example.yaml \
+  --output-dir /mnt/azureml/outputs/model
+```
+
+This repository phase prepares the entry point only. It does not submit the
+Azure ML job, create compute, upload data, start compute, register a model, or
+add MLflow. MLflow integration is a later subphase.
+
 ## Artifacts
 
-Training writes the configured output directory only when training starts. A
-non-empty output directory is rejected unless `--overwrite` is passed.
+Training writes the configured output directory only when training starts. An
+existing empty output directory is accepted because Azure ML may provide an
+empty mounted output path. A non-empty output directory is rejected unless
+`--overwrite` is passed.
 
 Each run writes:
 

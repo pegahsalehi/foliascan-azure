@@ -68,6 +68,8 @@ class TrainingSummary:
     device: str
     num_classes: int
     early_stopped: bool
+    max_train_batches: int | None = None
+    max_validation_batches: int | None = None
 
 
 def run_training(
@@ -78,11 +80,15 @@ def run_training(
     output_dir_override: Path | None = None,
     device_override: DeviceName | None = None,
     epochs_override: int | None = None,
+    max_train_batches: int | None = None,
+    max_validation_batches: int | None = None,
     overwrite: bool = False,
     on_epoch: Callable[[EpochHistory], None] | None = None,
 ) -> TrainingSummary:
     """Train the local baseline model using train and validation splits only."""
 
+    _validate_optional_batch_limit("max_train_batches", max_train_batches)
+    _validate_optional_batch_limit("max_validation_batches", max_validation_batches)
     config = training_config_with_overrides(
         load_training_config(config_path),
         output_dir=output_dir_override,
@@ -127,12 +133,14 @@ def run_training(
             loss_fn=loss_fn,
             optimizer=optimizer,
             device=device,
+            max_batches=max_train_batches,
         )
         validation_metrics = evaluate_one_epoch(
             model=model,
             dataloader=dataloaders.validation,
             loss_fn=loss_fn,
             device=device,
+            max_batches=max_validation_batches,
         )
         elapsed_seconds = time.perf_counter() - start_time
 
@@ -203,6 +211,8 @@ def run_training(
         device=str(device),
         num_classes=class_mapping.num_classes,
         early_stopped=early_stopped,
+        max_train_batches=max_train_batches,
+        max_validation_batches=max_validation_batches,
     )
 
 
@@ -256,7 +266,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             device=_namespace_optional_device(args, "device"),
             epochs=_namespace_optional_int(args, "epochs"),
         )
-        _print_config_summary(config_preview)
+        max_train_batches = _namespace_optional_int(args, "max_train_batches")
+        max_validation_batches = _namespace_optional_int(
+            args,
+            "max_validation_batches",
+        )
+        _print_config_summary(
+            config_preview,
+            max_train_batches=max_train_batches,
+            max_validation_batches=max_validation_batches,
+        )
         summary = run_training(
             manifest_path=_namespace_path(args, "manifest"),
             data_dir=_namespace_path(args, "data_dir"),
@@ -264,6 +283,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_dir_override=_namespace_optional_path(args, "output_dir"),
             device_override=_namespace_optional_device(args, "device"),
             epochs_override=_namespace_optional_int(args, "epochs"),
+            max_train_batches=max_train_batches,
+            max_validation_batches=max_validation_batches,
             overwrite=_namespace_bool(args, "overwrite"),
             on_epoch=_print_epoch,
         )
@@ -327,6 +348,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Override the configured epoch count.",
     )
     parser.add_argument(
+        "--max-train-batches",
+        type=_positive_int,
+        help="Optional smoke-test limit for train batches processed per epoch.",
+    )
+    parser.add_argument(
+        "--max-validation-batches",
+        type=_positive_int,
+        help="Optional smoke-test limit for validation batches processed per epoch.",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Allow writing into a non-empty training output directory.",
@@ -334,7 +365,12 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_config_summary(config: TrainingConfig) -> None:
+def _print_config_summary(
+    config: TrainingConfig,
+    *,
+    max_train_batches: int | None = None,
+    max_validation_batches: int | None = None,
+) -> None:
     print("FoliaScan local training")
     print(f"model: {config.model_name}")
     print(f"epochs: {config.epochs}")
@@ -344,6 +380,11 @@ def _print_config_summary(config: TrainingConfig) -> None:
     print(f"weight_decay: {config.weight_decay}")
     print(f"device: {config.device}")
     print(f"output_dir: {config.output_dir}")
+    print(f"max_train_batches: {_format_optional_limit(max_train_batches)}")
+    print(
+        "max_validation_batches: "
+        f"{_format_optional_limit(max_validation_batches)}"
+    )
 
 
 def _print_epoch(record: EpochHistory) -> None:
@@ -366,6 +407,11 @@ def _print_final_summary(summary: TrainingSummary) -> None:
     print(f"device: {summary.device}")
     print(f"classes: {summary.num_classes}")
     print(f"early_stopped: {summary.early_stopped}")
+    print(f"max_train_batches: {_format_optional_limit(summary.max_train_batches)}")
+    print(
+        "max_validation_batches: "
+        f"{_format_optional_limit(summary.max_validation_batches)}"
+    )
 
 
 def _namespace_path(args: argparse.Namespace, name: str) -> Path:
@@ -411,6 +457,30 @@ def _namespace_bool(args: argparse.Namespace, name: str) -> bool:
         return value
     msg = f"Expected boolean argument for {name}."
     raise TypeError(msg)
+
+
+def _positive_int(value: str) -> int:
+    try:
+        parsed_value = int(value)
+    except ValueError as exc:
+        msg = "must be a positive integer"
+        raise argparse.ArgumentTypeError(msg) from exc
+    if parsed_value <= 0:
+        msg = "must be a positive integer"
+        raise argparse.ArgumentTypeError(msg)
+    return parsed_value
+
+
+def _validate_optional_batch_limit(name: str, value: int | None) -> None:
+    if value is None:
+        return
+    if value <= 0:
+        msg = f"{name} must be a positive integer when supplied."
+        raise TrainingRunError(msg)
+
+
+def _format_optional_limit(value: int | None) -> str:
+    return "all" if value is None else str(value)
 
 
 if __name__ == "__main__":

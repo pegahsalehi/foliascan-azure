@@ -9,6 +9,8 @@ from torch import nn
 from foliascan.training import train as train_module
 from foliascan.training.checkpoints import (
     BEST_CHECKPOINT_FILENAME,
+    HISTORY_CSV_FILENAME,
+    HISTORY_JSON_FILENAME,
     LAST_CHECKPOINT_FILENAME,
 )
 from foliascan.training.config import TrainingConfig
@@ -87,6 +89,129 @@ def test_run_training_completes_tiny_run_and_does_not_use_test_split(
     assert (summary.output_dir / LAST_CHECKPOINT_FILENAME).exists()
     assert (summary.output_dir / "history.csv").exists()
     assert (summary.output_dir / "history.json").exists()
+    assert not (data_dir / "class_a" / "missing_test.jpg").exists()
+
+
+def test_run_training_accepts_absolute_paths_and_existing_empty_output_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured_output_dir = tmp_path / "configured-output"
+    data_dir, manifest_path, config_path = _write_tiny_training_inputs(
+        tmp_path,
+        epochs=1,
+        patience=0,
+        output_dir=configured_output_dir,
+    )
+    output_dir = (tmp_path / "azure-managed-output").resolve()
+    output_dir.mkdir()
+    monkeypatch.setattr(train_module, "create_model", _tiny_model_factory)
+
+    assert manifest_path.is_absolute()
+    assert data_dir.is_absolute()
+    assert config_path.is_absolute()
+    assert output_dir.is_absolute()
+
+    summary = train_module.run_training(
+        manifest_path=manifest_path,
+        data_dir=data_dir,
+        config_path=config_path,
+        output_dir_override=output_dir,
+    )
+
+    assert summary.output_dir == output_dir
+    _assert_managed_artifacts_under(output_dir)
+    assert not configured_output_dir.exists()
+
+
+def test_run_training_batch_limits_control_processed_sample_counts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir, manifest_path, config_path = _write_tiny_training_inputs(
+        tmp_path,
+        epochs=1,
+        patience=0,
+        train_records_per_class=2,
+        validation_records_per_class=2,
+        batch_size=2,
+    )
+    monkeypatch.setattr(train_module, "create_model", _tiny_model_factory)
+
+    summary = train_module.run_training(
+        manifest_path=manifest_path,
+        data_dir=data_dir,
+        config_path=config_path,
+        max_train_batches=1,
+        max_validation_batches=1,
+    )
+
+    checkpoint = torch.load(
+        summary.output_dir / LAST_CHECKPOINT_FILENAME,
+        map_location="cpu",
+    )
+    assert checkpoint["train_metrics"]["sample_count"] == 2
+    assert checkpoint["train_metrics"]["batch_count"] == 1
+    assert checkpoint["validation_metrics"]["sample_count"] == 2
+    assert checkpoint["validation_metrics"]["batch_count"] == 1
+    assert summary.max_train_batches == 1
+    assert summary.max_validation_batches == 1
+
+
+def test_run_training_without_batch_limits_processes_all_batches(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir, manifest_path, config_path = _write_tiny_training_inputs(
+        tmp_path,
+        epochs=1,
+        patience=0,
+        train_records_per_class=2,
+        validation_records_per_class=2,
+        batch_size=2,
+    )
+    monkeypatch.setattr(train_module, "create_model", _tiny_model_factory)
+
+    summary = train_module.run_training(
+        manifest_path=manifest_path,
+        data_dir=data_dir,
+        config_path=config_path,
+    )
+
+    checkpoint = torch.load(
+        summary.output_dir / LAST_CHECKPOINT_FILENAME,
+        map_location="cpu",
+    )
+    assert checkpoint["train_metrics"]["sample_count"] == 4
+    assert checkpoint["train_metrics"]["batch_count"] == 2
+    assert checkpoint["validation_metrics"]["sample_count"] == 4
+    assert checkpoint["validation_metrics"]["batch_count"] == 2
+    assert summary.max_train_batches is None
+    assert summary.max_validation_batches is None
+
+
+def test_run_training_rejects_invalid_batch_limits(tmp_path: Path) -> None:
+    data_dir, manifest_path, config_path = _write_tiny_training_inputs(
+        tmp_path,
+        epochs=1,
+        patience=0,
+    )
+
+    with pytest.raises(TrainingRunError, match="max_train_batches"):
+        train_module.run_training(
+            manifest_path=manifest_path,
+            data_dir=data_dir,
+            config_path=config_path,
+            max_train_batches=0,
+        )
+
+    with pytest.raises(TrainingRunError, match="max_validation_batches"):
+        train_module.run_training(
+            manifest_path=manifest_path,
+            data_dir=data_dir,
+            config_path=config_path,
+            max_validation_batches=-1,
+        )
 
 
 def test_run_training_stops_early_and_selects_best_checkpoint(
@@ -180,6 +305,8 @@ def test_train_cli_parses_arguments_and_prints_summary(
         output_dir_override: Path | None = None,
         device_override: str | None = None,
         epochs_override: int | None = None,
+        max_train_batches: int | None = None,
+        max_validation_batches: int | None = None,
         overwrite: bool = False,
         on_epoch: object = None,
     ) -> TrainingSummary:
@@ -189,6 +316,8 @@ def test_train_cli_parses_arguments_and_prints_summary(
         assert output_dir_override == tmp_path / "override"
         assert device_override == "cpu"
         assert epochs_override == 1
+        assert max_train_batches == 3
+        assert max_validation_batches == 4
         assert overwrite is True
         return TrainingSummary(
             completed_epochs=1,
@@ -199,6 +328,8 @@ def test_train_cli_parses_arguments_and_prints_summary(
             device="cpu",
             num_classes=2,
             early_stopped=False,
+            max_train_batches=max_train_batches,
+            max_validation_batches=max_validation_batches,
         )
 
     monkeypatch.setattr(train_module, "run_training", fake_run_training)
@@ -217,6 +348,10 @@ def test_train_cli_parses_arguments_and_prints_summary(
             "cpu",
             "--epochs",
             "1",
+            "--max-train-batches",
+            "3",
+            "--max-validation-batches",
+            "4",
             "--overwrite",
         ]
     )
@@ -224,7 +359,102 @@ def test_train_cli_parses_arguments_and_prints_summary(
     captured = capsys.readouterr()
     assert exit_status == 0
     assert "FoliaScan local training" in captured.out
+    assert "max_train_batches: 3" in captured.out
+    assert "max_validation_batches: 4" in captured.out
     assert "Training complete" in captured.out
+
+
+def test_train_cli_forwards_linux_mount_style_paths_without_project_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = _write_config(tmp_path, epochs=1, patience=0)
+    seen_paths: dict[str, Path | None] = {}
+
+    def fake_run_training(
+        *,
+        manifest_path: Path,
+        data_dir: Path,
+        config_path: Path,
+        output_dir_override: Path | None = None,
+        device_override: str | None = None,
+        epochs_override: int | None = None,
+        max_train_batches: int | None = None,
+        max_validation_batches: int | None = None,
+        overwrite: bool = False,
+        on_epoch: object = None,
+    ) -> TrainingSummary:
+        seen_paths["manifest"] = manifest_path
+        seen_paths["data_dir"] = data_dir
+        seen_paths["config"] = config_path
+        seen_paths["output_dir"] = output_dir_override
+        return TrainingSummary(
+            completed_epochs=1,
+            best_epoch=1,
+            best_validation_loss=0.5,
+            best_validation_accuracy=0.75,
+            output_dir=output_dir_override or Path("unused"),
+            device="cpu",
+            num_classes=2,
+            early_stopped=False,
+            max_train_batches=max_train_batches,
+            max_validation_batches=max_validation_batches,
+        )
+
+    monkeypatch.setattr(train_module, "run_training", fake_run_training)
+
+    exit_status = train_module.main(
+        [
+            "--manifest",
+            "/mnt/azureml/inputs/manifest/dataset_manifest.csv",
+            "--data-dir",
+            "/mnt/azureml/inputs/images",
+            "--config",
+            str(config_path),
+            "--output-dir",
+            "/mnt/azureml/outputs/model",
+        ]
+    )
+
+    assert exit_status == 0
+    manifest = seen_paths["manifest"]
+    data_dir = seen_paths["data_dir"]
+    output_dir = seen_paths["output_dir"]
+    assert manifest is not None
+    assert data_dir is not None
+    assert output_dir is not None
+    assert manifest.as_posix() == (
+        "/mnt/azureml/inputs/manifest/dataset_manifest.csv"
+    )
+    assert data_dir.as_posix() == "/mnt/azureml/inputs/images"
+    assert seen_paths["config"] == config_path
+    assert output_dir.as_posix() == "/mnt/azureml/outputs/model"
+
+
+def test_train_cli_rejects_invalid_batch_limits_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = _write_config(tmp_path, epochs=1, patience=0)
+
+    with pytest.raises(SystemExit) as exc_info:
+        train_module.main(
+            [
+                "--manifest",
+                str(tmp_path / "dataset_manifest.csv"),
+                "--data-dir",
+                str(tmp_path / "raw"),
+                "--config",
+                str(config_path),
+                "--max-train-batches",
+                "0",
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 2
+    assert "must be a positive integer" in captured.err
+    assert "Traceback" not in captured.err
 
 
 def test_train_cli_reports_expected_errors_without_traceback(
@@ -274,17 +504,43 @@ def _write_tiny_training_inputs(
     *,
     epochs: int,
     patience: int,
+    train_records_per_class: int = 1,
+    validation_records_per_class: int = 1,
+    batch_size: int = 2,
+    output_dir: Path | None = None,
 ) -> tuple[Path, Path, Path]:
     data_dir = tmp_path / "raw"
     manifest_path = tmp_path / "dataset_manifest.csv"
-    config_path = _write_config(tmp_path, epochs=epochs, patience=patience)
-    rows = [
-        ("class_a/train_a.jpg", "class_a", "train", "leaf_a", "train"),
-        ("class_b/train_b.jpg", "class_b", "train", "leaf_b", "train"),
-        ("class_a/validation_a.jpg", "class_a", "validation", "leaf_c", "train"),
-        ("class_b/validation_b.jpg", "class_b", "validation", "leaf_d", "train"),
-        ("class_a/missing_test.jpg", "class_a", "test", "leaf_e", "test"),
-    ]
+    config_path = _write_config(
+        tmp_path,
+        epochs=epochs,
+        patience=patience,
+        batch_size=batch_size,
+        output_dir=output_dir,
+    )
+    rows: list[tuple[str, str, str, str, str]] = []
+    for class_name in ("class_a", "class_b"):
+        for index in range(train_records_per_class):
+            rows.append(
+                (
+                    f"{class_name}/train_{index}.jpg",
+                    class_name,
+                    "train",
+                    f"{class_name}_train_leaf_{index}",
+                    "train",
+                )
+            )
+        for index in range(validation_records_per_class):
+            rows.append(
+                (
+                    f"{class_name}/validation_{index}.jpg",
+                    class_name,
+                    "validation",
+                    f"{class_name}_validation_leaf_{index}",
+                    "train",
+                )
+            )
+    rows.append(("class_a/missing_test.jpg", "class_a", "test", "leaf_test", "test"))
     for relative_path, _, split, _, _ in rows:
         if split == "test":
             continue
@@ -308,14 +564,22 @@ def _write_tiny_training_inputs(
     return data_dir, manifest_path, config_path
 
 
-def _write_config(tmp_path: Path, *, epochs: int, patience: int) -> Path:
+def _write_config(
+    tmp_path: Path,
+    *,
+    epochs: int,
+    patience: int,
+    batch_size: int = 2,
+    output_dir: Path | None = None,
+) -> Path:
     config_path = tmp_path / "training.yaml"
+    configured_output_dir = output_dir or tmp_path / "artifacts" / "training"
     config_path.write_text(
         "\n".join(
             [
                 "random_seed: 42",
                 "image_size: 16",
-                "batch_size: 2",
+                f"batch_size: {batch_size}",
                 "learning_rate: 0.001",
                 f"epochs: {epochs}",
                 "model_name: resnet18",
@@ -326,13 +590,25 @@ def _write_config(tmp_path: Path, *, epochs: int, patience: int) -> Path:
                 "weight_decay: 0.0001",
                 f"early_stopping_patience: {patience}",
                 "device: cpu",
-                f"output_dir: {(tmp_path / 'artifacts' / 'training').as_posix()}",
+                f"output_dir: {configured_output_dir.as_posix()}",
             ]
         )
         + "\n",
         encoding="utf-8",
     )
     return config_path
+
+
+def _assert_managed_artifacts_under(output_dir: Path) -> None:
+    for filename in (
+        BEST_CHECKPOINT_FILENAME,
+        LAST_CHECKPOINT_FILENAME,
+        HISTORY_CSV_FILENAME,
+        HISTORY_JSON_FILENAME,
+    ):
+        artifact_path = output_dir / filename
+        assert artifact_path.exists()
+        assert artifact_path.resolve().is_relative_to(output_dir.resolve())
 
 
 def _config(
