@@ -1,0 +1,14 @@
+$schema: https://azuremlschemas.azureedge.net/latest/data.schema.json
+
+name: foliascan-source-manifest
+version: 1
+type: uri_file
+
+path: ../../../data/processed/plantvillage_source_manifest.csv
+
+description: Original PlantVillage source metadata and split information.
+
+tags:
+  project: foliascan
+  source: plantvillage
+  content: source-manifest
