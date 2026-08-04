@@ -8,12 +8,12 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project has completed Phase 3: the PlantVillage Tomato dataset has been
-uploaded, registered as versioned Azure ML data assets, and verified through
-a read-only local and cloud integrity check. Phase 4 Azure training preparation
-is next. Phase 1B2, official PlantVillage ingestion and leakage-safe split
-preparation, is complete. Local baseline training and final local evaluation
-tooling are available.
+The project is in Phase 4.2: the existing training entry point is prepared for
+Azure ML command-job mounted inputs and managed outputs. Phase 3, Azure ML data
+asset registration and read-only verification, is complete. Phase 1B2,
+official PlantVillage ingestion and leakage-safe split preparation, is
+complete. Local baseline training and final local evaluation tooling are
+available.
 
 Current status:
 
@@ -139,6 +139,10 @@ poetry run python -m foliascan.training.train `
   --data-dir data/raw/plantvillage_tomato_color `
   --config configs/training.example.yaml
 ```
+
+The same entry point accepts Azure ML mounted input paths, an Azure-managed
+`--output-dir`, and optional `--max-train-batches` /
+`--max-validation-batches` smoke-test limits.
 
 ## Final Test Evaluation
 

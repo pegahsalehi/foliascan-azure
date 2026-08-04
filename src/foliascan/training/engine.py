@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from itertools import islice
 
 import torch
 from torch import Tensor, nn
@@ -31,16 +32,18 @@ def train_one_epoch(
     loss_fn: nn.Module,
     optimizer: Optimizer,
     device: torch.device,
+    max_batches: int | None = None,
 ) -> EpochMetrics:
     """Run one training epoch and return aggregate metrics."""
 
+    _validate_max_batches(max_batches)
     model.train()
     total_loss = 0.0
     correct_count = 0
     sample_count = 0
     batch_count = 0
 
-    for batch in dataloader:
+    for batch in _limited_batches(dataloader, max_batches):
         images, targets = _batch_tensors(batch, device)
         optimizer.zero_grad(set_to_none=True)
         outputs = model(images)
@@ -63,9 +66,11 @@ def evaluate_one_epoch(
     dataloader: Iterable[object],
     loss_fn: nn.Module,
     device: torch.device,
+    max_batches: int | None = None,
 ) -> EpochMetrics:
     """Run one validation epoch without updating model parameters."""
 
+    _validate_max_batches(max_batches)
     model.eval()
     total_loss = 0.0
     correct_count = 0
@@ -73,7 +78,7 @@ def evaluate_one_epoch(
     batch_count = 0
 
     with torch.inference_mode():
-        for batch in dataloader:
+        for batch in _limited_batches(dataloader, max_batches):
             images, targets = _batch_tensors(batch, device)
             outputs = model(images)
             loss = loss_fn(outputs, targets)
@@ -98,6 +103,23 @@ def _batch_tensors(batch: object, device: torch.device) -> tuple[Tensor, Tensor]
         raise TrainingEngineError(msg)
 
     return images.to(device), targets.to(device)
+
+
+def _limited_batches(
+    dataloader: Iterable[object],
+    max_batches: int | None,
+) -> Iterable[object]:
+    if max_batches is None:
+        return dataloader
+    return islice(dataloader, max_batches)
+
+
+def _validate_max_batches(max_batches: int | None) -> None:
+    if max_batches is None:
+        return
+    if max_batches <= 0:
+        msg = "max_batches must be a positive integer when supplied."
+        raise TrainingEngineError(msg)
 
 
 def _correct_count(outputs: Tensor, targets: Tensor) -> int:
