@@ -8,11 +8,10 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project is in Phase 1.6: final local test evaluation and error-analysis
-tooling is in progress. Phase 1B2, official PlantVillage ingestion and
-leakage-safe split preparation, is complete. Local baseline training has
-produced a selected checkpoint, but final test-set results have not been
-reported yet.
+The project is in Phase 2.6: local-to-Azure connection verification is in
+progress. Phase 1B2, official PlantVillage ingestion and leakage-safe split
+preparation, is complete. Local baseline training and final local evaluation
+tooling are available.
 
 Current status:
 
@@ -23,6 +22,7 @@ Current status:
 - Dataset preparation notes are documented in `docs/dataset.md`.
 - Local training foundation notes are documented in `docs/training.md`.
 - Final evaluation notes are documented in `docs/evaluation.md`.
+- Azure ML connection-check notes are documented in `docs/azure-connection.md`.
 - The planned official dataset source is `mohanty/PlantVillage` on Hugging Face,
   using the `color` configuration and the Tomato-only subset.
 - Tests and quality-tool configuration are ready for local validation.
@@ -154,6 +154,22 @@ poetry run python -m foliascan.evaluation.evaluate `
 
 Do not use final test results for repeated model tuning or checkpoint
 selection.
+
+## Azure ML Connection Check
+
+See `docs/azure-connection.md` for the read-only local authentication and
+workspace connectivity check.
+
+Verify that the local Poetry environment can reach the existing Azure ML
+workspace:
+
+```powershell
+poetry run python -m foliascan.cloud.azure_connection
+```
+
+The command reads `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, and
+`AZURE_ML_WORKSPACE` from the local environment. It does not submit jobs, start
+compute nodes, upload data, or create Azure resources.
 
 ## Repository Structure
 
