@@ -8,8 +8,10 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project is in Phase 2.6: local-to-Azure connection verification is in
-progress. Phase 1B2, official PlantVillage ingestion and leakage-safe split
+The project has completed Phase 3: the PlantVillage Tomato dataset has been
+uploaded, registered as versioned Azure ML data assets, and verified through
+a read-only local and cloud integrity check. Phase 4 Azure training preparation
+is next. Phase 1B2, official PlantVillage ingestion and leakage-safe split
 preparation, is complete. Local baseline training and final local evaluation
 tooling are available.
 
@@ -23,10 +25,12 @@ Current status:
 - Local training foundation notes are documented in `docs/training.md`.
 - Final evaluation notes are documented in `docs/evaluation.md`.
 - Azure ML connection-check notes are documented in `docs/azure-connection.md`.
+- Azure ML data-asset verification notes are documented in
+  `docs/azure-data-assets.md`.
 - The planned official dataset source is `mohanty/PlantVillage` on Hugging Face,
   using the `color` configuration and the Tomato-only subset.
 - Tests and quality-tool configuration are ready for local validation.
-- No Azure integration, deployment, web interface, or CI/CD has been implemented.
+- No Azure training, deployment, web interface, or CI/CD has been implemented.
 
 ## Planned Workflow
 
@@ -170,6 +174,18 @@ poetry run python -m foliascan.cloud.azure_connection
 The command reads `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, and
 `AZURE_ML_WORKSPACE` from the local environment. It does not submit jobs, start
 compute nodes, upload data, or create Azure resources.
+
+## Azure ML Data Asset Check
+
+See `docs/azure-data-assets.md` for the read-only registered data-asset and
+local dataset verification workflow.
+
+```powershell
+poetry run python -m foliascan.cloud.azure_data_assets `
+  --image-root data/raw/plantvillage_tomato_color `
+  --dataset-manifest data/processed/dataset_manifest.csv `
+  --source-manifest data/processed/plantvillage_source_manifest.csv
+```
 
 ## Repository Structure
 

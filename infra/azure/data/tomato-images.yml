@@ -1,0 +1,14 @@
+$schema: https://azuremlschemas.azureedge.net/latest/data.schema.json
+
+name: foliascan-tomato-images
+version: 1
+type: uri_folder
+
+path: ../../../data/raw/plantvillage_tomato_color
+
+description: PlantVillage Tomato image subset used by FoliaScan.
+
+tags:
+  project: foliascan
+  source: plantvillage
+  content: tomato-images

@@ -1,0 +1,14 @@
+$schema: https://azuremlschemas.azureedge.net/latest/data.schema.json
+
+name: foliascan-dataset-manifest
+version: 1
+type: uri_file
+
+path: ../../../data/processed/dataset_manifest.csv
+
+description: Leakage-safe train, validation, and test assignments for FoliaScan.
+
+tags:
+  project: foliascan
+  source: plantvillage
+  content: dataset-manifest
