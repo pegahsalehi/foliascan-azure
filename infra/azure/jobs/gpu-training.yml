@@ -1,0 +1,52 @@
+﻿$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+
+type: command
+display_name: foliascan-gpu-training
+experiment_name: foliascan-training
+description: >
+  Full FoliaScan ResNet18 training job using the registered Version 1
+  PlantVillage Tomato data assets and one Azure GPU node.
+
+code: ../../..
+
+command: >-
+  python -m foliascan.training.train
+  --manifest ${{inputs.manifest}}
+  --data-dir ${{inputs.images}}
+  --config configs/training.example.yaml
+  --output-dir ${{outputs.training_output}}
+  --device cuda
+  --epochs 10
+
+environment: azureml:AzureML-acpt-pytorch-2.8-cuda12.6:15
+compute: azureml:gpu-fs-dev
+
+environment_variables:
+  PYTHONPATH: src
+  PYTHONUNBUFFERED: "1"
+
+inputs:
+  images:
+    type: uri_folder
+    path: azureml:foliascan-tomato-images:1
+    mode: ro_mount
+
+  manifest:
+    type: uri_file
+    path: azureml:foliascan-dataset-manifest:1
+    mode: ro_mount
+
+outputs:
+  training_output:
+    type: uri_folder
+    mode: rw_mount
+
+limits:
+  timeout: 7200
+
+tags:
+  project: foliascan
+  stage: gpu-full-training
+  data-version: "1"
+  epochs: "10"
+  environment-family: acpt-pytorch-2.8-cuda12.6
