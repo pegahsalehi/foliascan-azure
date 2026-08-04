@@ -1,0 +1,13 @@
+$schema: https://azuremlschemas.azureedge.net/latest/workspace.schema.json
+
+name: mlw-foliascan-dev-ne
+location: norwayeast
+
+display_name: FoliaScan Development
+description: Development workspace for training and managing the FoliaScan image-classification model.
+
+tags:
+  project: foliascan
+  environment: dev
+  purpose: learning
+  managed-by: azure-ml-cli
