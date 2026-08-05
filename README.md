@@ -6,6 +6,10 @@ This project was selected because plant health classification is a practical com
 
 FoliaScan is educational software. It is not a diagnostic tool. Any future predictions from this project must not replace advice from agricultural specialists, agronomists, plant pathologists, or other qualified professionals.
 
+<p align="center">
+  <img src="images/screenshot.png" alt="Project screenshot" width="600">
+</p>
+
 ## Current Phase and Status
 
 The project is in Phase 4.2: the existing training entry point is prepared for
