@@ -1,0 +1,35 @@
+﻿$schema: https://azuremlschemas.azureedge.net/latest/model.schema.json
+
+name: foliascan-tomato-resnet18
+version: 1
+type: custom_model
+
+path: azureml://jobs/cyan_boot_v9vg1214b3/outputs/training_output/paths/best_model.pt
+
+description: >
+  FoliaScan ResNet18 checkpoint trained on the versioned PlantVillage Tomato
+  dataset in Azure Machine Learning. Selected using the lowest validation loss.
+  This is a raw PyTorch checkpoint for ten-class tomato leaf classification.
+
+tags:
+  project: foliascan
+  task: tomato-leaf-disease-classification
+  framework: pytorch
+  architecture: resnet18
+
+  source-job: cyan_boot_v9vg1214b3
+  source-output: training_output
+  source-file: best_model.pt
+
+  selection-criterion: lowest-validation-loss
+  best-epoch: "10"
+  best-validation-loss: "0.212930"
+  best-validation-accuracy: "0.928964"
+  evaluation-scope: validation-only
+
+  dataset-asset: "foliascan-tomato-images:1"
+  manifest-asset: "foliascan-dataset-manifest:1"
+  environment-version: "15"
+  random-seed: "42"
+
+  checkpoint-sha256: 14e79f5c40d591bc32d83c6b80689c76613391cf12abce9c0a1b7e6a4e5582fb
