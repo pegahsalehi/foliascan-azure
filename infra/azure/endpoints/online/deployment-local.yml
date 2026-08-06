@@ -1,0 +1,22 @@
+﻿$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+
+name: blue
+endpoint_name: foliascan-tomato-endpoint
+
+model:
+  path: ../../../../artifacts/azure/jobs/cyan_boot_v9vg1214b3/named-outputs/training_output/best_model.pt
+
+code_configuration:
+  code: ../../../..
+  scoring_script: infra/azure/endpoints/online/code/score.py
+
+environment:
+  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:latest
+  conda_file: ../../environments/foliascan-inference/conda.yml
+
+environment_variables:
+  PYTHONPATH: /var/azureml-app/foliascan-azure/src
+
+instance_type: Standard_DS3_v2
+instance_count: 1
+
