@@ -1,4 +1,4 @@
-# Local environment files
+﻿# Local environment files
 .env
 .env.*
 !.env.example
@@ -41,7 +41,7 @@ sample_images/*
 !sample_images/.gitkeep
 
 # Models, checkpoints, and experiment outputs
-models/
+/models/
 checkpoints/
 artifacts/
 runs/
