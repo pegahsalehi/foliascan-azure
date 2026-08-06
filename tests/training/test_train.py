@@ -12,6 +12,7 @@ from foliascan.training.checkpoints import (
     HISTORY_CSV_FILENAME,
     HISTORY_JSON_FILENAME,
     LAST_CHECKPOINT_FILENAME,
+    EpochHistory,
 )
 from foliascan.training.config import TrainingConfig
 from foliascan.training.dataset import MANIFEST_COLUMNS
@@ -68,6 +69,11 @@ def test_run_training_completes_tiny_run_and_does_not_use_test_split(
         patience=0,
     )
     monkeypatch.setattr(train_module, "create_model", _tiny_model_factory)
+    monkeypatch.setattr(
+        train_module,
+        "create_mlflow_tracker",
+        _unexpected_mlflow_tracker_factory,
+    )
     epoch_rows: list[int] = []
 
     summary = train_module.run_training(
@@ -190,6 +196,69 @@ def test_run_training_without_batch_limits_processes_all_batches(
     assert summary.max_validation_batches is None
 
 
+def test_run_training_logs_to_mlflow_only_when_enabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir, manifest_path, config_path = _write_tiny_training_inputs(
+        tmp_path,
+        epochs=1,
+        patience=0,
+        train_records_per_class=2,
+        validation_records_per_class=2,
+        batch_size=2,
+    )
+    tracker = FakeMlflowTracker()
+    monkeypatch.setattr(train_module, "create_model", _tiny_model_factory)
+    monkeypatch.setattr(train_module, "create_mlflow_tracker", lambda: tracker)
+
+    summary = train_module.run_training(
+        manifest_path=manifest_path,
+        data_dir=data_dir,
+        config_path=config_path,
+        max_train_batches=1,
+        max_validation_batches=1,
+        enable_mlflow=True,
+    )
+
+    assert summary.mlflow_enabled is True
+    assert tracker.parameter_calls == [
+        {
+            "model_name": "resnet18",
+            "epochs": 1,
+            "batch_size": 2,
+            "learning_rate": 0.001,
+            "optimizer_name": "adamw",
+            "weight_decay": 0.0001,
+            "image_size": 16,
+            "pretrained": False,
+            "freeze_backbone": False,
+            "random_seed": 42,
+            "requested_device": "cpu",
+            "max_train_batches": 1,
+            "max_validation_batches": 1,
+        }
+    ]
+    assert [record.epoch for record in tracker.epoch_metric_calls] == [1]
+    assert tracker.epoch_metric_calls[0].train_loss >= 0
+    assert tracker.summary_calls == [
+        {
+            "completed_epochs": 1,
+            "best_epoch": summary.best_epoch,
+            "best_validation_loss": summary.best_validation_loss,
+            "best_validation_accuracy": summary.best_validation_accuracy,
+            "early_stopped": False,
+        }
+    ]
+    assert tracker.artifact_calls == [
+        {
+            "config_path": config_path,
+            "output_dir": summary.output_dir,
+        }
+    ]
+    _assert_managed_artifacts_under(summary.output_dir)
+
+
 def test_run_training_rejects_invalid_batch_limits(tmp_path: Path) -> None:
     data_dir, manifest_path, config_path = _write_tiny_training_inputs(
         tmp_path,
@@ -307,6 +376,7 @@ def test_train_cli_parses_arguments_and_prints_summary(
         epochs_override: int | None = None,
         max_train_batches: int | None = None,
         max_validation_batches: int | None = None,
+        enable_mlflow: bool = False,
         overwrite: bool = False,
         on_epoch: object = None,
     ) -> TrainingSummary:
@@ -318,6 +388,7 @@ def test_train_cli_parses_arguments_and_prints_summary(
         assert epochs_override == 1
         assert max_train_batches == 3
         assert max_validation_batches == 4
+        assert enable_mlflow is True
         assert overwrite is True
         return TrainingSummary(
             completed_epochs=1,
@@ -330,6 +401,7 @@ def test_train_cli_parses_arguments_and_prints_summary(
             early_stopped=False,
             max_train_batches=max_train_batches,
             max_validation_batches=max_validation_batches,
+            mlflow_enabled=enable_mlflow,
         )
 
     monkeypatch.setattr(train_module, "run_training", fake_run_training)
@@ -352,6 +424,7 @@ def test_train_cli_parses_arguments_and_prints_summary(
             "3",
             "--max-validation-batches",
             "4",
+            "--enable-mlflow",
             "--overwrite",
         ]
     )
@@ -381,6 +454,7 @@ def test_train_cli_forwards_linux_mount_style_paths_without_project_resolution(
         epochs_override: int | None = None,
         max_train_batches: int | None = None,
         max_validation_batches: int | None = None,
+        enable_mlflow: bool = False,
         overwrite: bool = False,
         on_epoch: object = None,
     ) -> TrainingSummary:
@@ -399,6 +473,7 @@ def test_train_cli_forwards_linux_mount_style_paths_without_project_resolution(
             early_stopped=False,
             max_train_batches=max_train_batches,
             max_validation_batches=max_validation_batches,
+            mlflow_enabled=enable_mlflow,
         )
 
     monkeypatch.setattr(train_module, "run_training", fake_run_training)
@@ -484,6 +559,79 @@ def test_train_cli_reports_expected_errors_without_traceback(
     assert exit_status == 2
     assert "error: bad user input" in captured.err
     assert "Traceback" not in captured.err
+
+
+class FakeMlflowTracker:
+    def __init__(self) -> None:
+        self.parameter_calls: list[dict[str, object]] = []
+        self.epoch_metric_calls: list[EpochHistory] = []
+        self.summary_calls: list[dict[str, object]] = []
+        self.artifact_calls: list[dict[str, Path]] = []
+
+    def log_training_parameters(
+        self,
+        *,
+        config: TrainingConfig,
+        requested_device: str,
+        max_train_batches: int | None,
+        max_validation_batches: int | None,
+    ) -> None:
+        self.parameter_calls.append(
+            {
+                "model_name": config.model_name,
+                "epochs": config.epochs,
+                "batch_size": config.batch_size,
+                "learning_rate": config.learning_rate,
+                "optimizer_name": config.optimizer_name,
+                "weight_decay": config.weight_decay,
+                "image_size": config.image_size,
+                "pretrained": config.pretrained,
+                "freeze_backbone": config.freeze_backbone,
+                "random_seed": config.random_seed,
+                "requested_device": requested_device,
+                "max_train_batches": max_train_batches,
+                "max_validation_batches": max_validation_batches,
+            }
+        )
+
+    def log_epoch_metrics(self, history: EpochHistory) -> None:
+        self.epoch_metric_calls.append(history)
+
+    def log_training_summary(
+        self,
+        *,
+        completed_epochs: int,
+        best_epoch: int,
+        best_validation_loss: float,
+        best_validation_accuracy: float,
+        early_stopped: bool,
+    ) -> None:
+        self.summary_calls.append(
+            {
+                "completed_epochs": completed_epochs,
+                "best_epoch": best_epoch,
+                "best_validation_loss": best_validation_loss,
+                "best_validation_accuracy": best_validation_accuracy,
+                "early_stopped": early_stopped,
+            }
+        )
+
+    def log_lightweight_artifacts(
+        self,
+        *,
+        config_path: Path,
+        output_dir: Path,
+    ) -> None:
+        self.artifact_calls.append(
+            {
+                "config_path": config_path,
+                "output_dir": output_dir,
+            }
+        )
+
+
+def _unexpected_mlflow_tracker_factory() -> object:
+    raise AssertionError("MLflow tracking must remain disabled without the flag.")
 
 
 def _tiny_model_factory(

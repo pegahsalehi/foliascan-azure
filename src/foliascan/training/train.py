@@ -44,6 +44,10 @@ from foliascan.training.engine import (
     evaluate_one_epoch,
     train_one_epoch,
 )
+from foliascan.training.mlflow_tracking import (
+    MlflowTrackingError,
+    create_mlflow_tracker,
+)
 from foliascan.training.model import ModelFactoryError, create_model
 from foliascan.training.reproducibility import (
     DeviceResolutionError,
@@ -70,6 +74,7 @@ class TrainingSummary:
     early_stopped: bool
     max_train_batches: int | None = None
     max_validation_batches: int | None = None
+    mlflow_enabled: bool = False
 
 
 def run_training(
@@ -82,6 +87,7 @@ def run_training(
     epochs_override: int | None = None,
     max_train_batches: int | None = None,
     max_validation_batches: int | None = None,
+    enable_mlflow: bool = False,
     overwrite: bool = False,
     on_epoch: Callable[[EpochHistory], None] | None = None,
 ) -> TrainingSummary:
@@ -95,6 +101,15 @@ def run_training(
         device=device_override,
         epochs=epochs_override,
     )
+    mlflow_tracker = create_mlflow_tracker() if enable_mlflow else None
+    if mlflow_tracker is not None:
+        mlflow_tracker.log_training_parameters(
+            config=config,
+            requested_device=config.device,
+            max_train_batches=max_train_batches,
+            max_validation_batches=max_validation_batches,
+        )
+
     records = read_training_manifest(manifest_path)
     class_mapping = build_class_mapping(records)
     dataloaders = create_train_validation_dataloaders(
@@ -188,6 +203,8 @@ def run_training(
         )
         history.append(history_record)
         write_history(tuple(history), config.output_dir)
+        if mlflow_tracker is not None:
+            mlflow_tracker.log_epoch_metrics(history_record)
         if on_epoch is not None:
             on_epoch(history_record)
 
@@ -202,7 +219,7 @@ def run_training(
         msg = "Training did not complete any epochs."
         raise TrainingRunError(msg)
 
-    return TrainingSummary(
+    summary = TrainingSummary(
         completed_epochs=len(history),
         best_epoch=best_epoch,
         best_validation_loss=best_validation_loss,
@@ -213,7 +230,22 @@ def run_training(
         early_stopped=early_stopped,
         max_train_batches=max_train_batches,
         max_validation_batches=max_validation_batches,
+        mlflow_enabled=enable_mlflow,
     )
+    if mlflow_tracker is not None:
+        mlflow_tracker.log_training_summary(
+            completed_epochs=summary.completed_epochs,
+            best_epoch=summary.best_epoch,
+            best_validation_loss=summary.best_validation_loss,
+            best_validation_accuracy=summary.best_validation_accuracy,
+            early_stopped=summary.early_stopped,
+        )
+        mlflow_tracker.log_lightweight_artifacts(
+            config_path=config_path,
+            output_dir=summary.output_dir,
+        )
+
+    return summary
 
 
 def create_optimizer(
@@ -285,6 +317,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             epochs_override=_namespace_optional_int(args, "epochs"),
             max_train_batches=max_train_batches,
             max_validation_batches=max_validation_batches,
+            enable_mlflow=_namespace_bool(args, "enable_mlflow"),
             overwrite=_namespace_bool(args, "overwrite"),
             on_epoch=_print_epoch,
         )
@@ -294,6 +327,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         FileExistsError,
         FileNotFoundError,
         ModelFactoryError,
+        MlflowTrackingError,
         OSError,
         TrainingArtifactError,
         TrainingConfigError,
@@ -356,6 +390,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-validation-batches",
         type=_positive_int,
         help="Optional smoke-test limit for validation batches processed per epoch.",
+    )
+    parser.add_argument(
+        "--enable-mlflow",
+        action="store_true",
+        help="Log parameters, metrics, and lightweight artifacts to MLflow.",
     )
     parser.add_argument(
         "--overwrite",

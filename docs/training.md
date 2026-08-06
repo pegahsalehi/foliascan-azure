@@ -2,10 +2,10 @@
 
 Phase 2A added the local data and model foundation for a simple image
 classification baseline. Phase 2B adds local training and validation for that
-baseline. Phase 4.2 keeps the same entry point usable when Azure ML command
-jobs provide mounted input and output paths. It does not submit Azure jobs,
-calculate final test accuracy, register models, deploy inference endpoints, or
-add MLflow tracking.
+baseline. Phase 4 keeps the same entry point usable when Azure ML command jobs
+provide mounted input and output paths, with explicit opt-in MLflow tracking.
+It does not submit Azure jobs, calculate final test accuracy, register models,
+or deploy inference endpoints.
 
 ## Baseline Model
 
@@ -109,6 +109,18 @@ The batch limits must be positive integers when supplied. Omitting them
 processes every batch. The limits cap only processed batches; they do not alter
 the dataset manifest or change train, validation, or test split assignments.
 
+MLflow tracking is disabled by default. Enable it only when the process already
+has an MLflow run context, such as inside an Azure ML command job:
+
+```powershell
+poetry run python -m foliascan.training.train `
+  --manifest data/processed/dataset_manifest.csv `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --config configs/training.example.yaml `
+  --output-dir artifacts/training/mlflow_check `
+  --enable-mlflow
+```
+
 The training loop uses `torch.nn.CrossEntropyLoss` for multi-class
 classification and AdamW for optimization. AdamW starts as the only supported
 optimizer because it is a practical, stable default for transfer-learning
@@ -151,12 +163,59 @@ python -m foliascan.training.train \
   --manifest /mnt/azureml/inputs/manifest/dataset_manifest.csv \
   --data-dir /mnt/azureml/inputs/images \
   --config configs/training.example.yaml \
-  --output-dir /mnt/azureml/outputs/model
+  --output-dir /mnt/azureml/outputs/model \
+  --enable-mlflow
 ```
 
-This repository phase prepares the entry point only. It does not submit the
-Azure ML job, create compute, upload data, start compute, register a model, or
-add MLflow. MLflow integration is a later subphase.
+This repository phase prepares the entry point and command-job YAML only. It
+does not submit the Azure ML job, create compute, upload data, start compute,
+register a model, or deploy an endpoint.
+
+## MLflow Tracking
+
+When `--enable-mlflow` is supplied, FoliaScan uses the current MLflow run
+context. Azure ML command jobs provide the tracking URI and run identity through
+the job environment, so the training script does not call
+`mlflow.set_tracking_uri()` and does not hard-code an Azure ML tracking URI.
+
+The script also does not call `mlflow.set_experiment()`. The Azure command-job
+YAML keeps `experiment_name: foliascan-training`, and Azure ML uses that field
+to place the job run in the intended experiment.
+
+MLflow logs these parameters once at the start of tracking:
+
+- model name
+- epoch count
+- batch size
+- learning rate
+- optimizer name
+- weight decay
+- image size
+- pretrained and freeze-backbone settings
+- random seed
+- requested device
+- smoke-test batch limits
+
+After each epoch, MLflow logs train loss, train accuracy, validation loss,
+validation accuracy, learning rate, and elapsed seconds with the epoch number as
+the MLflow step. At the end of successful training, it logs completed epochs,
+best epoch, best validation loss, best validation accuracy, and whether early
+stopping occurred.
+
+Only lightweight artifacts are logged to MLflow:
+
+- the training configuration YAML
+- `history.csv`
+- `history.json`
+
+`best_model.pt` and `last_model.pt` are not duplicated into MLflow in this
+phase. They are already saved under the training `--output-dir`, which maps to
+the Azure ML named output, and each checkpoint is large enough that duplicating
+it would waste storage and slow tracking.
+
+MLflow tracking is run metadata and artifact logging. It is not model
+registration. Registering a model version from a selected checkpoint is a later
+phase and should remain a deliberate separate step.
 
 ## Artifacts
 
@@ -192,4 +251,5 @@ available. Deterministic cuDNN settings are enabled when CUDA is present, but
 full bit-for-bit reproducibility can still depend on hardware, drivers, and
 library versions.
 
-MLflow tracking and Azure training are future phases.
+Model registration, endpoint deployment, and final production workflow
+automation are future phases.
