@@ -19,6 +19,7 @@ command: >-
   --epochs 1
   --max-train-batches 2
   --max-validation-batches 1
+  --enable-mlflow
 
 environment: azureml:AzureML-acpt-pytorch-2.8-cuda12.6:15
 compute: azureml:cpu-fs-dev

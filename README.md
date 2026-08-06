@@ -12,12 +12,12 @@ FoliaScan is educational software. It is not a diagnostic tool. Any future predi
 
 ## Current Phase and Status
 
-The project is in Phase 4.2: the existing training entry point is prepared for
-Azure ML command-job mounted inputs and managed outputs. Phase 3, Azure ML data
-asset registration and read-only verification, is complete. Phase 1B2,
-official PlantVillage ingestion and leakage-safe split preparation, is
-complete. Local baseline training and final local evaluation tooling are
-available.
+The project is in Phase 4: the existing training entry point is prepared for
+Azure ML command-job mounted inputs, managed outputs, and opt-in MLflow
+tracking. Phase 3, Azure ML data asset registration and read-only verification,
+is complete. Phase 1B2, official PlantVillage ingestion and leakage-safe split
+preparation, is complete. Local baseline training and final local evaluation
+tooling are available.
 
 Current status:
 
@@ -34,7 +34,8 @@ Current status:
 - The planned official dataset source is `mohanty/PlantVillage` on Hugging Face,
   using the `color` configuration and the Tomato-only subset.
 - Tests and quality-tool configuration are ready for local validation.
-- No Azure training, deployment, web interface, or CI/CD has been implemented.
+- No Azure training job has been submitted, and no deployment, web interface, or
+  CI/CD has been implemented.
 
 ## Planned Workflow
 
@@ -146,7 +147,10 @@ poetry run python -m foliascan.training.train `
 
 The same entry point accepts Azure ML mounted input paths, an Azure-managed
 `--output-dir`, and optional `--max-train-batches` /
-`--max-validation-batches` smoke-test limits.
+`--max-validation-batches` smoke-test limits. MLflow tracking is opt-in with
+`--enable-mlflow`; Azure ML supplies the tracking context for command jobs, and
+large checkpoint files remain in the named training output rather than being
+duplicated as MLflow artifacts.
 
 ## Final Test Evaluation
 

@@ -17,6 +17,7 @@ command: >-
   --output-dir ${{outputs.training_output}}
   --device cuda
   --epochs 10
+  --enable-mlflow
 
 environment: azureml:AzureML-acpt-pytorch-2.8-cuda12.6:15
 compute: azureml:gpu-fs-dev
