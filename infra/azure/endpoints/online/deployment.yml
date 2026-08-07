@@ -13,9 +13,10 @@ code_configuration:
 environment_variables:
   PYTHONPATH: /var/azureml-app/foliascan-azure/src
 
-instance_type: Standard_DS3_v2
+instance_type: Standard_DS2_v2
 instance_count: 1
 
 app_insights_enabled: false
+
 
 
