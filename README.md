@@ -15,7 +15,7 @@ are educational model outputs and should not replace advice from agronomists,
 plant pathologists, extension services, or other qualified specialists.
 
 <p align="center">
-  <img src="assets/screenshots/streamlit-cloud-inference.png" alt="FoliaScan Streamlit cloud inference screenshot" width="760">
+  <img src="assets/screenshots/streamlit-cloud-inference.png" alt="FoliaScan Streamlit cloud inference screenshot" width="300">
 </p>
 
 ## Overview
