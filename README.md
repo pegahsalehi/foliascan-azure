@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/foliascan-logo.png" alt="FoliaScan logo" width="260">
+  <img src="assets/branding/foliascan-logo.png" alt="FoliaScan logo" width="300">
 </p>
 
 # FoliaScan
