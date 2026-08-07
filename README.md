@@ -2,8 +2,6 @@
   <img src="assets/branding/foliascan-logo.png" alt="FoliaScan logo" width="300">
 </p>
 
-# FoliaScan
-
 FoliaScan is an educational and portfolio-focused end-to-end Azure Machine
 Learning computer vision project for tomato-leaf image classification. It shows
 the path from dataset preparation and local ResNet18 training through Azure ML
