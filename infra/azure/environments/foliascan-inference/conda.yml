@@ -1,0 +1,15 @@
+﻿name: foliascan-inference
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - torch==2.8.0+cpu
+      - torchvision==0.23.0+cpu
+      - pillow==11.3.0
+      - pyyaml==6.0.2
+      - azureml-inference-server-http==1.5.1

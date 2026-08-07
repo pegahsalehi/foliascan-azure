@@ -1,0 +1,21 @@
+﻿$schema: https://azuremlschemas.azureedge.net/latest/environment.schema.json
+
+name: foliascan-inference-cpu
+version: 2
+image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:latest
+conda_file: conda.yml
+
+description: >
+  CPU inference environment for the FoliaScan ResNet18 Azure ML online
+  endpoint. Includes Python 3.11, CPU-only PyTorch, Torchvision, Pillow,
+  and the Azure ML inference HTTP server.
+
+tags:
+  project: foliascan
+  purpose: online-inference
+  device: cpu
+  framework: pytorch
+  pytorch-version: "2.8.0"
+  torchvision-version: "0.23.0"
+  python-version: "3.11"
+

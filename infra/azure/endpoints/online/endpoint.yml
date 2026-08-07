@@ -1,0 +1,14 @@
+﻿$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineEndpoint.schema.json
+
+name: foliascan-tomato-endpoint
+
+description: >
+  Managed online endpoint for real-time FoliaScan tomato leaf disease
+  classification.
+
+auth_mode: key
+
+tags:
+  project: foliascan
+  task: tomato-leaf-disease-classification
+  environment: development

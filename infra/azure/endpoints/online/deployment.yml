@@ -1,0 +1,22 @@
+﻿$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+
+name: blue
+endpoint_name: foliascan-tomato-endpoint
+
+model: azureml:foliascan-tomato-resnet18:1
+environment: azureml:foliascan-inference-cpu:2
+
+code_configuration:
+  code: ../../../..
+  scoring_script: infra/azure/endpoints/online/code/score.py
+
+environment_variables:
+  PYTHONPATH: /var/azureml-app/foliascan-azure/src
+
+instance_type: Standard_DS2_v2
+instance_count: 1
+
+app_insights_enabled: false
+
+
+
