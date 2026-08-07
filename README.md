@@ -2,11 +2,14 @@
   <img src="assets/branding/foliascan-logo.png" alt="FoliaScan logo" width="300">
 </p>
 
+[![CI](https://github.com/pegahsalehi/foliascan-azure/actions/workflows/ci.yml/badge.svg)](https://github.com/pegahsalehi/foliascan-azure/actions/workflows/ci.yml)
+
 FoliaScan is an educational and portfolio-focused end-to-end Azure Machine
 Learning computer vision project for tomato-leaf image classification. It shows
 the path from dataset preparation and local ResNet18 training through Azure ML
 training, model registration, managed online endpoint validation, and a small
-Streamlit inference client.
+Streamlit inference client. Phase 9 adds GitHub Actions CI as the final project
+phase for the current portfolio scope.
 
 FoliaScan is not a professional agricultural diagnosis tool. Its predictions
 are educational model outputs and should not replace advice from agronomists,
@@ -41,6 +44,7 @@ endpoint deliberately.
 - Registered model asset and tested Azure ML Managed Online Endpoint contract.
 - Local Docker deployment validation for the scoring script.
 - Streamlit client application for one-image cloud inference.
+- GitHub Actions CI for deterministic repository validation.
 - Mocked tests for endpoint invocation and presentation helpers.
 
 ## End-To-End Architecture
@@ -129,6 +133,26 @@ names such as `Tomato___Late_blight` are formatted as readable labels such as
 Client details are documented in
 [docs/client-application.md](docs/client-application.md).
 
+## Continuous Integration
+
+FoliaScan uses GitHub Actions CI on pull requests targeting `main` and pushes to
+`main`. The workflow runs on a GitHub-hosted Ubuntu runner with Python 3.11 and
+Poetry 2.4.1, using Poetry dependency caching keyed from `poetry.lock`.
+
+Automated checks include:
+
+- the full pytest suite
+- Ruff linting
+- mypy static type checking
+- a Streamlit import smoke test
+
+CI intentionally does not authenticate to Azure, create Azure resources, run
+Azure training, deploy managed endpoints, or require Azure secrets. This keeps
+automated validation safe, deterministic, and free from accidental Azure compute
+cost.
+
+See [docs/ci.md](docs/ci.md) for details.
+
 ## Learning Roadmap
 
 <p align="center">
@@ -149,6 +173,7 @@ project, from local foundations through cloud inference.
 - [Azure connection check](docs/azure-connection.md)
 - [Azure data asset verification](docs/azure-data-assets.md)
 - [Client application](docs/client-application.md)
+- [Continuous integration](docs/ci.md)
 
 ## Project Phases
 
@@ -168,9 +193,11 @@ Completed work includes:
 12. Successful real cloud inference.
 13. Streamlit client application.
 14. Successful end-to-end Streamlit to Azure endpoint inference.
+15. GitHub Actions CI validated on a real pull request.
 
-Possible later work includes CI/CD, monitoring, richer explainability, and
-field-image robustness studies.
+Phase 9 is the final project phase for the current portfolio scope. Possible
+later enhancements include monitoring, richer explainability, and field-image
+robustness studies.
 
 ## Repository Structure
 
@@ -182,6 +209,8 @@ foliascan-azure/
 |   |-- branding/
 |   |-- roadmap/
 |   `-- screenshots/
+|-- .github/
+|   `-- workflows/
 |-- configs/
 |-- docs/
 |-- infra/
@@ -252,6 +281,7 @@ variables. Keep those values local.
 ## Security And Cost Notes
 
 - Tests mock HTTP calls and do not call Azure.
+- CI runs repository checks without Azure authentication or Azure secrets.
 - App import does not call Azure.
 - The endpoint key is read from the environment and never hard-coded.
 - The Streamlit app does not store uploaded images, predictions, or history.
