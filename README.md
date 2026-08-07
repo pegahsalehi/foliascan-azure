@@ -1,69 +1,211 @@
-# FoliaScan
-
-FoliaScan is a learning and portfolio project for building a crop-leaf disease image-classification system. The project starts with a local Python implementation and is planned to grow into an Azure Machine Learning workflow for training, tracking, registering, and deploying a model.
-
-This project was selected because plant health classification is a practical computer vision problem with a clear path from local experimentation to cloud-based machine learning operations. It offers room to practice dataset validation, baseline modeling, evaluation, explainability, deployment, and monitoring without adding unnecessary product complexity in the early phases.
-
-FoliaScan is educational software. It is not a diagnostic tool. Any future predictions from this project must not replace advice from agricultural specialists, agronomists, plant pathologists, or other qualified professionals.
-
 <p align="center">
-  <img src="images/screenshot.png" alt="Project screenshot" width="600">
+  <img src="assets/branding/foliascan-logo.png" alt="FoliaScan logo" width="260">
 </p>
 
-## Current Phase and Status
+# FoliaScan
 
-The project is in Phase 4: the existing training entry point is prepared for
-Azure ML command-job mounted inputs, managed outputs, and opt-in MLflow
-tracking. Phase 3, Azure ML data asset registration and read-only verification,
-is complete. Phase 1B2, official PlantVillage ingestion and leakage-safe split
-preparation, is complete. Local baseline training and final local evaluation
-tooling are available.
+FoliaScan is an educational and portfolio-focused end-to-end Azure Machine
+Learning computer vision project for tomato-leaf image classification. It shows
+the path from dataset preparation and local ResNet18 training through Azure ML
+training, model registration, managed online endpoint validation, and a small
+Streamlit inference client.
 
-Current status:
+FoliaScan is not a professional agricultural diagnosis tool. Its predictions
+are educational model outputs and should not replace advice from agronomists,
+plant pathologists, extension services, or other qualified specialists.
 
-- Phase 1A local project foundation is complete.
-- Python package structure is initialized.
-- Project-level path configuration is available in `src/foliascan/config.py`.
-- Example training settings are documented in `configs/training.example.yaml`.
-- Dataset preparation notes are documented in `docs/dataset.md`.
-- Local training foundation notes are documented in `docs/training.md`.
-- Final evaluation notes are documented in `docs/evaluation.md`.
-- Azure ML connection-check notes are documented in `docs/azure-connection.md`.
-- Azure ML data-asset verification notes are documented in
-  `docs/azure-data-assets.md`.
-- The planned official dataset source is `mohanty/PlantVillage` on Hugging Face,
-  using the `color` configuration and the Tomato-only subset.
-- Tests and quality-tool configuration are ready for local validation.
-- No Azure training job has been submitted, and no deployment, web interface, or
-  CI/CD has been implemented.
+<p align="center">
+  <img src="assets/screenshots/streamlit-cloud-inference.png" alt="FoliaScan Streamlit cloud inference screenshot" width="760">
+</p>
 
-## Planned Workflow
+## Overview
 
-The planned workflow is local first, then Azure:
+The project uses the Tomato subset of PlantVillage to practice a realistic
+machine learning workflow without turning the repository into a production
+product. It emphasizes leakage-safe data splitting, reproducible training,
+honest final test evaluation, Azure ML orchestration, secure endpoint
+configuration, and a focused user-facing client.
 
-1. Build and validate the project locally.
-2. Prepare and validate the image dataset.
-3. Train a baseline image classifier locally.
-4. Evaluate model quality and add explainability.
-5. Define Azure infrastructure only when the local workflow is understood.
-6. Train with Azure Machine Learning and track experiments with MLflow.
-7. Register the model and deploy it to a managed online endpoint.
-8. Build a simple client application for inference.
-9. Add GitHub Actions and monitoring.
+The Phase 8 cloud endpoint was validated with real Streamlit-to-Azure inference
+and then deleted to control Azure cost. The repository keeps the code,
+configuration, tests, and documentation needed to recreate a compatible
+endpoint deliberately.
 
-## Planned Project Phases
+## Key Features
 
-1. Local project foundation
-2. Dataset preparation and validation
-3. Local baseline image classifier
-4. Evaluation and explainability
-5. Azure infrastructure
-6. Azure Machine Learning training and MLflow tracking
-7. Model registration and managed online endpoint
-8. Simple client application
-9. GitHub Actions and monitoring
+- Leakage-safe PlantVillage Tomato dataset preparation.
+- Manifest-driven PyTorch data loading and ResNet18 baseline training.
+- Final local test evaluation with metrics, confusion matrix, and error
+  analysis outputs.
+- Azure ML infrastructure definitions for workspace, compute, environments,
+  jobs, data assets, model registration, and managed online endpoint deployment.
+- Azure GPU training with MLflow experiment tracking.
+- Registered model asset and tested Azure ML Managed Online Endpoint contract.
+- Local Docker deployment validation for the scoring script.
+- Streamlit client application for one-image cloud inference.
+- Mocked tests for endpoint invocation and presentation helpers.
 
-## Installation
+## End-To-End Architecture
+
+```text
+PlantVillage Tomato images
+        |
+        v
+Leakage-safe FoliaScan manifest
+        |
+        v
+Local / Azure ML ResNet18 training
+        |
+        v
+Final evaluation and model registration
+        |
+        v
+Azure ML Managed Online Endpoint
+        |
+        v
+Streamlit upload -> HTTPS request -> prediction display
+```
+
+The Streamlit app sends a raw Base64 JPEG or PNG payload to the managed online
+endpoint and displays the returned class probabilities. It does not use Azure
+SDK packages for inference; endpoint invocation is ordinary HTTPS.
+
+## Model / Evaluation Results
+
+Azure GPU training selected the best checkpoint at epoch 10:
+
+- validation loss: `0.212930`
+- validation accuracy: `0.928964`
+- final training accuracy: `0.941544`
+
+The separate local final test evaluation reported:
+
+- accuracy: `92.07%`
+- macro F1: `0.89665`
+- weighted F1: `0.92042`
+
+Validation metrics and final test metrics come from different stages. The
+validation split guided checkpoint selection during training; the final test
+split was reserved for the completed model evaluation.
+
+See [docs/evaluation.md](docs/evaluation.md) for the final evaluation workflow
+and output files.
+
+## Azure ML Workflow
+
+FoliaScan includes Azure ML configuration for:
+
+- read-only workspace connectivity checks
+- versioned data asset verification
+- CPU smoke jobs
+- GPU training jobs
+- MLflow run tracking
+- inference environment definition
+- registered model asset metadata
+- managed online endpoint and deployment YAML
+- local endpoint deployment validation
+
+Azure resource creation and job submission are deliberate manual actions. The
+repository does not create cloud resources during tests or app import.
+
+Relevant docs:
+
+- [Azure connection check](docs/azure-connection.md)
+- [Azure data assets](docs/azure-data-assets.md)
+- [Training workflow](docs/training.md)
+
+## Streamlit Application
+
+The Streamlit app lives in [app/streamlit_app.py](app/streamlit_app.py). It
+supports one simple workflow:
+
+```text
+upload image -> preview -> analyze -> prediction
+```
+
+It displays the predicted tomato-leaf class, confidence, top three class
+probabilities, and an expandable table of all class probabilities. Backend class
+names such as `Tomato___Late_blight` are formatted as readable labels such as
+`Late Blight` in the UI only; the endpoint contract is unchanged.
+
+Client details are documented in
+[docs/client-application.md](docs/client-application.md).
+
+## Learning Roadmap
+
+<p align="center">
+  <img src="assets/roadmap/foliascan-learning-roadmap.png" alt="FoliaScan learning roadmap" width="760">
+</p>
+
+The roadmap documents the phase-by-phase Azure ML learning journey behind this
+project, from local foundations through cloud inference.
+
+- [Download the PDF learning notes](assets/roadmap/foliascan-learning-roadmap.pdf)
+- [Download the editable XMind roadmap](assets/roadmap/foliascan-learning-roadmap.xmind)
+
+## Learning Materials
+
+- [Dataset preparation](docs/dataset.md)
+- [Training workflow](docs/training.md)
+- [Evaluation workflow](docs/evaluation.md)
+- [Azure connection check](docs/azure-connection.md)
+- [Azure data asset verification](docs/azure-data-assets.md)
+- [Client application](docs/client-application.md)
+
+## Project Phases
+
+Completed work includes:
+
+1. Local project foundation.
+2. Leakage-safe PlantVillage Tomato dataset preparation.
+3. Local ResNet18 baseline training.
+4. Final evaluation and error analysis.
+5. Azure ML infrastructure configuration.
+6. Versioned Azure data assets.
+7. CPU smoke job and GPU model training in Azure.
+8. MLflow experiment tracking.
+9. Registered model asset.
+10. Azure ML Managed Online Endpoint contract and deployment configuration.
+11. Local Docker deployment validation.
+12. Successful real cloud inference.
+13. Streamlit client application.
+14. Successful end-to-end Streamlit to Azure endpoint inference.
+
+Possible later work includes CI/CD, monitoring, richer explainability, and
+field-image robustness studies.
+
+## Repository Structure
+
+```text
+foliascan-azure/
+|-- app/
+|   `-- streamlit_app.py
+|-- assets/
+|   |-- branding/
+|   |-- roadmap/
+|   `-- screenshots/
+|-- configs/
+|-- docs/
+|-- infra/
+|   `-- azure/
+|-- sample_images/
+|-- src/
+|   `-- foliascan/
+|       |-- client/
+|       |-- cloud/
+|       |-- data/
+|       |-- evaluation/
+|       |-- inference/
+|       `-- training/
+|-- tests/
+|-- AGENTS.md
+|-- LICENSE
+|-- poetry.lock
+|-- pyproject.toml
+`-- README.md
+```
+
+## Installation / Local Setup
 
 This project uses Python 3.11 and Poetry.
 
@@ -71,168 +213,57 @@ This project uses Python 3.11 and Poetry.
 poetry install
 ```
 
-To run commands inside the Poetry environment:
+Common local checks:
 
 ```powershell
 poetry run pytest
 poetry run ruff check .
-poetry run mypy src
+poetry run mypy
 ```
 
-## Dataset Preparation
+Dataset export requires the Hugging Face PlantVillage source and can be large.
+See [docs/dataset.md](docs/dataset.md) before downloading or preparing data.
 
-See `docs/dataset.md` for the official PlantVillage source, expected folder
-structure, limitations, and local manifest workflow.
+## Running The Streamlit App
 
-Export the official PlantVillage Tomato color subset:
+From the repository root:
 
 ```powershell
-poetry run python -m foliascan.data.cli plantvillage-export `
-  --output-dir data/raw/plantvillage_tomato_color `
-  --source-manifest data/processed/plantvillage_source_manifest.csv
+poetry run streamlit run app/streamlit_app.py
 ```
 
-Create the leakage-safe FoliaScan manifest:
+The app can import and render without endpoint configuration. A prediction
+requires a compatible deployed Azure ML Managed Online Endpoint and the
+environment variables below.
+
+## Azure Configuration
+
+The Streamlit client reads:
 
 ```powershell
-poetry run python -m foliascan.data.cli plantvillage-split `
-  --source-manifest data/processed/plantvillage_source_manifest.csv `
-  --output data/processed/dataset_manifest.csv `
-  --validation-ratio 0.15 `
-  --random-seed 42
+$env:FOLIASCAN_ENDPOINT_URL = "<managed-online-endpoint-scoring-url>"
+$env:FOLIASCAN_ENDPOINT_KEY = "<managed-online-endpoint-key>"
 ```
 
-The generic split command below remains available for simple folder-based
-datasets. It is not used for PlantVillage because PlantVillage requires
-`leaf_id` group-aware splitting and preservation of the official test split.
+Do not commit real endpoint URLs, keys, subscription identifiers, resource
+identifiers, tokens, or `.env` files. The app does not display these values.
 
-Inspect a local directory-based dataset:
+Azure ML training and data-asset commands use their own documented environment
+variables. Keep those values local.
 
-```powershell
-poetry run python -m foliascan.data.cli inspect `
-  --data-dir data/raw/plantvillage_tomato_color
-```
+## Security And Cost Notes
 
-Generate a stratified manifest from valid images:
+- Tests mock HTTP calls and do not call Azure.
+- App import does not call Azure.
+- The endpoint key is read from the environment and never hard-coded.
+- The Streamlit app does not store uploaded images, predictions, or history.
+- Azure resources should be created, deployed, and deleted deliberately.
+- The Phase 8 cloud endpoint was deleted after validation to avoid ongoing
+  managed endpoint cost.
 
-```powershell
-poetry run python -m foliascan.data.cli split `
-  --data-dir data/raw/plantvillage_tomato_color `
-  --output data/processed/dataset_manifest.csv
-```
+## Disclaimer
 
-## Local Training Foundation
-
-See `docs/training.md` for the manifest-driven PyTorch data pipeline, class
-mapping, ResNet18 model factory, smoke-test workflow, and local training loop.
-
-Run a forward-pass smoke test without training the model:
-
-```powershell
-poetry run python -m foliascan.training.smoke_test `
-  --manifest data/processed/dataset_manifest.csv `
-  --data-dir data/raw/plantvillage_tomato_color `
-  --config configs/training.example.yaml `
-  --split train
-```
-
-Train the local baseline without using the test split for model selection:
-
-```powershell
-poetry run python -m foliascan.training.train `
-  --manifest data/processed/dataset_manifest.csv `
-  --data-dir data/raw/plantvillage_tomato_color `
-  --config configs/training.example.yaml
-```
-
-The same entry point accepts Azure ML mounted input paths, an Azure-managed
-`--output-dir`, and optional `--max-train-batches` /
-`--max-validation-batches` smoke-test limits. MLflow tracking is opt-in with
-`--enable-mlflow`; Azure ML supplies the tracking context for command jobs, and
-large checkpoint files remain in the named training output rather than being
-duplicated as MLflow artifacts.
-
-## Final Test Evaluation
-
-See `docs/evaluation.md` for the final test-set evaluation workflow, metrics,
-confusion-matrix outputs, and error-analysis reports.
-
-Run the selected checkpoint on the untouched test split:
-
-```powershell
-poetry run python -m foliascan.evaluation.evaluate `
-  --manifest data/processed/dataset_manifest.csv `
-  --data-dir data/raw/plantvillage_tomato_color `
-  --checkpoint artifacts/training/resnet18_baseline_v1/best_model.pt `
-  --output-dir artifacts/evaluation/resnet18_baseline_v1 `
-  --device cuda
-```
-
-Do not use final test results for repeated model tuning or checkpoint
-selection.
-
-## Azure ML Connection Check
-
-See `docs/azure-connection.md` for the read-only local authentication and
-workspace connectivity check.
-
-Verify that the local Poetry environment can reach the existing Azure ML
-workspace:
-
-```powershell
-poetry run python -m foliascan.cloud.azure_connection
-```
-
-The command reads `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, and
-`AZURE_ML_WORKSPACE` from the local environment. It does not submit jobs, start
-compute nodes, upload data, or create Azure resources.
-
-## Azure ML Data Asset Check
-
-See `docs/azure-data-assets.md` for the read-only registered data-asset and
-local dataset verification workflow.
-
-```powershell
-poetry run python -m foliascan.cloud.azure_data_assets `
-  --image-root data/raw/plantvillage_tomato_color `
-  --dataset-manifest data/processed/dataset_manifest.csv `
-  --source-manifest data/processed/plantvillage_source_manifest.csv
-```
-
-## Repository Structure
-
-This repository is being prepared for the intended final project naming. The
-GitHub repository and local folder renames remain manual steps.
-
-```text
-foliascan-azure/
-|-- src/
-|   `-- foliascan/
-|       |-- __init__.py
-|       |-- config.py
-|       `-- data/
-|-- tests/
-|-- configs/
-|-- docs/
-|-- notebooks/
-|-- data/
-|-- sample_images/
-|-- .env.example
-|-- .gitignore
-|-- AGENTS.md
-|-- LICENSE
-|-- pyproject.toml
-`-- README.md
-```
-
-## Naming Conventions
-
-- Display name: FoliaScan
-- GitHub repository name: `foliascan-azure`
-- Local folder name: `foliascan-azure`
-- Poetry distribution name: `foliascan-azure`
-- Python package name: `foliascan`
-
-## Local Configuration
-
-Use `.env.example` as a template for future local configuration. Do not commit real `.env` files, credentials, API keys, tokens, Azure subscription IDs, or other secrets.
+FoliaScan is educational software built to practice computer vision and Azure ML
+workflows. Plant disease recognition can be affected by image quality, cultivar,
+lighting, disease stage, mixed symptoms, field conditions, and dataset bias. Do
+not use FoliaScan as the sole basis for agricultural treatment decisions.
