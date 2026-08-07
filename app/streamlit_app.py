@@ -109,14 +109,11 @@ def _render_header() -> None:
     if LOGO_PATH.exists():
         st.image(str(LOGO_PATH), width=220, output_format="PNG")
 
-    st.title("FoliaScan")
-
     st.markdown(
         """
         <p class="foliascan-intro">
-        FoliaScan performs AI-based tomato-leaf image classification using a
-        computer vision model served through Azure ML. Upload one clear leaf
-        image, preview it, then run inference against the configured endpoint.
+        AI-powered tomato leaf analysis using a computer vision model served
+        through Azure Machine Learning.
         </p>
         """,
         unsafe_allow_html=True,
