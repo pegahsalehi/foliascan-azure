@@ -1,34 +1,32 @@
 # Azure ML Connection Check
 
-Phase 2.6 adds a local, read-only connection check for the existing FoliaScan
-Azure Machine Learning workspace. The command verifies that the Poetry
-environment can authenticate and reach the workspace before any later Azure ML
-training work is attempted.
+FoliaScan includes a small read-only utility for verifying local access to the Azure Machine Learning workspace.
 
-Existing development resources:
+The check confirms that the local Poetry environment can authenticate to Azure, reach the configured workspace, and list the available compute targets before cloud jobs are submitted.
 
-- resource group: `rg-foliascan-dev-ne`
-- workspace: `mlw-foliascan-dev-ne`
-- compute targets: `cpu-fs-dev`, `gpu-fs-dev`
+Development resources:
 
-The subscription ID is intentionally not documented or hard-coded. Keep it in
-your local environment only.
+- Resource group: `rg-foliascan-dev-ne`
+- Workspace: `mlw-foliascan-dev-ne`
+- Compute targets: `cpu-fs-dev`, `gpu-fs-dev`
 
-## Local Authentication
+The Azure subscription ID is not hard-coded or stored in the repository.
 
-Authenticate locally with the Azure CLI:
+## Authentication
+
+Authenticate with the Azure CLI:
 
 ```powershell
 az login
 ```
 
-If you have access to more than one subscription, select the correct one:
+If more than one subscription is available, select the required one:
 
 ```powershell
 az account set --subscription <your-subscription-id>
 ```
 
-Then set the environment variables used by FoliaScan:
+Set the environment variables used by FoliaScan:
 
 ```powershell
 $env:AZURE_SUBSCRIPTION_ID = "<your-subscription-id>"
@@ -36,36 +34,43 @@ $env:AZURE_RESOURCE_GROUP = "rg-foliascan-dev-ne"
 $env:AZURE_ML_WORKSPACE = "mlw-foliascan-dev-ne"
 ```
 
-## What The Command Uses
+## How It Works
 
-The verifier uses `azure.identity.DefaultAzureCredential`. Locally, that
-credential can use your Azure CLI sign-in, along with other standard Azure SDK
-credential sources.
+The connection check uses:
 
-It then creates an `azure.ai.ml.MLClient` for the configured subscription,
-resource group, and workspace. Creating `MLClient` alone is not enough to prove
-connectivity because construction is mostly local configuration. A real service
-request is forced with:
+```text
+azure.identity.DefaultAzureCredential
+```
+
+Locally, this can use the active Azure CLI sign-in.
+
+An Azure ML client is then created with:
+
+```text
+azure.ai.ml.MLClient
+```
+
+Creating the client alone does not confirm connectivity, so the utility performs a real read request:
 
 ```python
 ml_client.workspaces.get(workspace_name)
 ```
 
-After the workspace is reached, the command lists existing compute targets with:
+It then lists the compute targets with:
 
 ```python
 ml_client.compute.list()
 ```
 
-Only read operations are used.
+Only read operations are performed.
 
-## Run The Check
+## Run the Check
 
 ```powershell
 poetry run python -m foliascan.cloud.azure_connection
 ```
 
-The command prints only:
+The output contains only operational information such as:
 
 - connection status
 - workspace name
@@ -74,13 +79,19 @@ The command prints only:
 - compute type
 - provisioning state
 
-It does not print subscription IDs, principal IDs, access tokens, or full
-resource IDs.
+Sensitive values such as subscription IDs, access tokens, principal IDs, and full Azure resource IDs are not printed.
 
 ## Safety
 
-This command is read-only. It does not submit Azure ML jobs, start compute
-nodes, upload data, or create, update, or delete Azure resources.
+The connection check is read-only.
 
-No Azure ML job or compute node is started by listing the workspace compute
-targets.
+It does not:
+
+- submit Azure ML jobs
+- start compute nodes
+- upload data
+- create resources
+- modify resources
+- delete resources
+
+Listing workspace compute targets does not start the compute clusters.

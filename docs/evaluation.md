@@ -1,19 +1,14 @@
 # Final Test Evaluation
 
-Phase 1.6 adds final test-set evaluation and error-analysis tooling for the
-local ResNet18 baseline. The training phase selected `best_model.pt` using only
-training and validation records. The untouched test split remains reserved for
-one final estimate of model quality.
+FoliaScan evaluates the selected ResNet18 checkpoint on the held-out test split to produce final classification metrics and error-analysis outputs.
 
-Do not use test results repeatedly to tune transforms, hyperparameters, model
-architecture, class handling, or checkpoint selection. Those choices belong to
-training and validation. Once the test split influences model changes, it is no
-longer an independent estimate.
+The checkpoint is selected using only training and validation data. The test split remains untouched until final evaluation so it can provide an independent estimate of model performance.
 
-## Command
+Test results should not be used repeatedly to tune transforms, hyperparameters, model architecture, class handling, or checkpoint selection. Those decisions belong to training and validation.
 
-Run evaluation manually after the leakage-safe manifest, exported images, and
-selected checkpoint are available:
+## Run Evaluation
+
+Run the evaluator after the leakage-safe manifest, exported images, and selected checkpoint are available:
 
 ```powershell
 poetry run python -m foliascan.evaluation.evaluate `
@@ -24,67 +19,160 @@ poetry run python -m foliascan.evaluation.evaluate `
   --device cuda
 ```
 
-Use `--device cpu` for CPU evaluation, or `--device auto` to use CUDA only when
-it is available. A non-empty output directory is rejected unless `--overwrite`
-is passed.
+Use:
 
-## What Evaluation Does
+- `--device cpu` for CPU evaluation
+- `--device cuda` to require CUDA
+- `--device auto` to use CUDA when available and CPU otherwise
 
-Evaluation restores the checkpoint model architecture, weights, class mapping,
-and image-size/batch-size settings needed for deterministic test inference. It
-does not restore the optimizer, because evaluation does not update model
-parameters.
+A non-empty output directory is rejected unless `--overwrite` is supplied.
 
-Only manifest rows with `split=test` are loaded. The DataLoader uses the same
-deterministic evaluation transform as validation: resize, center crop, tensor
-conversion, and ImageNet normalization. The model runs with `model.eval()` and
-`torch.inference_mode()`.
+## Evaluation Workflow
+
+The evaluator restores the information required for deterministic inference from the selected checkpoint:
+
+- model architecture
+- model weights
+- class mapping
+- image size
+- batch size
+
+The optimizer state is not restored because evaluation does not update model parameters.
+
+Only manifest rows with:
+
+```text
+split=test
+```
+
+are loaded.
+
+The test DataLoader uses the same deterministic transform as validation:
+
+- resize
+- center crop
+- tensor conversion
+- ImageNet normalization
+
+Inference runs with:
+
+```python
+model.eval()
+torch.inference_mode()
+```
 
 ## Metrics
 
 The evaluator reports:
 
 - overall accuracy
-- per-class precision, recall, F1, and support
+- per-class precision
+- per-class recall
+- per-class F1
+- per-class support
 - macro precision, recall, and F1
 - weighted precision, recall, and F1
-- a raw-count confusion matrix
+- raw-count confusion matrix
 
-Accuracy is the fraction of test samples predicted correctly. Precision answers
-"when the model predicted this class, how often was it right?" Recall answers
-"of the real samples in this class, how many did the model find?" F1 combines
-precision and recall.
+Accuracy measures the fraction of test samples classified correctly.
 
-Macro metrics average classes equally. Weighted metrics average by class
-support, so larger classes have more influence.
+Precision measures how often predictions for a class are correct.
+
+Recall measures how many samples of a real class are correctly identified.
+
+F1 combines precision and recall into a single score.
+
+Macro metrics weight each class equally.
+
+Weighted metrics account for class support, so classes with more samples have greater influence.
 
 ## Output Files
 
-The output directory contains:
+The evaluation output directory contains:
 
-- `metrics.json`: aggregate metrics, checkpoint epoch, portable checkpoint path,
-  class mapping, and selected device
-- `predictions.csv`: every test prediction with path, true class, predicted
-  class, confidence, and correctness
-- `per_class_metrics.csv`: precision, recall, F1, and support per class
-- `confusion_matrix.csv`: raw-count matrix in checkpoint class order
-- `confusion_matrix.png`: readable matplotlib confusion-matrix image
-- `misclassified.csv`: incorrect predictions sorted by confidence descending
-- `confusion_pairs.csv`: most frequent true-class to predicted-class mistakes
+```text
+metrics.json
+predictions.csv
+per_class_metrics.csv
+confusion_matrix.csv
+confusion_matrix.png
+misclassified.csv
+confusion_pairs.csv
+```
 
-The reports reference relative image paths only. They do not copy or
-redistribute raw images.
+### `metrics.json`
+
+Contains aggregate evaluation metrics together with checkpoint metadata such as:
+
+- checkpoint epoch
+- checkpoint path
+- class mapping
+- selected device
+
+### `predictions.csv`
+
+Contains one row for every test sample, including:
+
+- relative image path
+- true class
+- predicted class
+- confidence
+- correctness
+
+### `per_class_metrics.csv`
+
+Contains precision, recall, F1, and support for each class.
+
+### `confusion_matrix.csv`
+
+Stores the raw-count confusion matrix using the checkpoint class order.
+
+### `confusion_matrix.png`
+
+Provides a visual representation of the confusion matrix.
+
+### `misclassified.csv`
+
+Contains incorrect predictions sorted by confidence, making high-confidence mistakes easier to inspect.
+
+### `confusion_pairs.csv`
+
+Summarizes the most frequent true-class to predicted-class confusion pairs.
+
+The reports use relative image paths only and do not copy or redistribute raw images.
 
 ## Error Analysis
 
 Start with `confusion_pairs.csv` to identify the most common class confusions.
-Then inspect `misclassified.csv`, especially high-confidence mistakes, to
-separate likely model limitations from possible data issues.
 
-Error analysis should be treated as diagnostic information for future phases,
-not a reason to retroactively reselect the completed checkpoint.
+Then inspect `misclassified.csv`, especially high-confidence errors, to understand whether mistakes may be related to:
 
-## Later Phases
+- visually similar disease classes
+- difficult or ambiguous samples
+- image quality
+- model limitations
+- possible data issues
 
-Explainability and Azure integration are later phases. This evaluator is a
-local, manifest-driven final test pass only.
+Error analysis is diagnostic. It should not be used to retroactively select a different checkpoint after the test set has been evaluated.
+
+## Evaluation Results
+
+The final local test evaluation produced:
+
+| Metric | Result |
+|---|---:|
+| Accuracy | 92.07% |
+| Macro F1 | 0.897 |
+| Weighted F1 | 0.920 |
+
+The evaluation produced 289 misclassified test samples.
+
+The most frequent confusion was:
+
+```text
+Spider mites → Target Spot
+```
+
+with 69 errors.
+
+These results provide the final held-out test estimate for the selected model and complement the validation metrics used during training and checkpoint selection.

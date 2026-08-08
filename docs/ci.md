@@ -1,29 +1,27 @@
 # Continuous Integration
 
-FoliaScan uses GitHub Actions CI for repository-level validation. The workflow
-is intentionally limited to deterministic local checks so pull requests can be
-validated without Azure credentials, cloud compute, or deployment side effects.
+FoliaScan uses GitHub Actions to automatically validate code quality on pull requests and after changes are merged into `main`.
 
-The CI workflow has been successfully validated on a real pull request.
+The workflow runs entirely on GitHub-hosted infrastructure and does not require Azure credentials or cloud resources.
 
 ## Triggers
 
-The workflow runs on:
+CI runs on:
 
 - pull requests targeting `main`
 - pushes to `main`
 
-## Runner And Tooling
+This validates changes before merge and verifies the final state of the main branch afterward.
 
-CI runs on a GitHub-hosted Ubuntu runner:
+## Environment
 
-- runner: `ubuntu-latest`
-- Python: `3.11`
-- Poetry: `2.4.1`
+The workflow uses:
 
-Poetry is installed with `pipx`. Python is configured with
-`actions/setup-python`, and Poetry dependency caching is enabled with
-`poetry.lock` as the cache dependency path.
+```text
+Runner:  ubuntu-latest
+Python:  3.11
+Poetry:  2.4.1
+```
 
 Dependencies are installed with:
 
@@ -31,9 +29,11 @@ Dependencies are installed with:
 poetry install --no-interaction --no-ansi
 ```
 
+Poetry dependency caching is enabled using `poetry.lock` as the cache dependency path.
+
 ## Automated Checks
 
-CI runs the same core checks used locally:
+The workflow runs:
 
 ```bash
 poetry run pytest
@@ -42,31 +42,42 @@ poetry run mypy
 poetry run python -c "import importlib; importlib.import_module('app.streamlit_app')"
 ```
 
-The pytest step runs the full test suite. Ruff checks lint and import ordering.
-mypy performs strict static type checking for the `foliascan` package. The
-Streamlit import smoke test verifies that the app module can be imported without
-making an Azure request.
+These checks cover:
+
+- the full automated test suite
+- Ruff linting
+- mypy static type checking
+- a Streamlit import smoke test
+
+The Streamlit smoke test also confirms that importing the application does not trigger a real Azure request.
 
 ## Permissions
 
-The workflow uses read-only repository permissions:
+The workflow uses read-only repository access:
 
 ```yaml
 permissions:
   contents: read
 ```
 
-## Azure Scope
+No write permission is required for CI.
 
-CI intentionally excludes Azure operations. It does not:
+## Azure Boundary
+
+Azure operations are intentionally kept outside the CI workflow.
+
+CI does not:
 
 - authenticate to Azure
-- require Azure secrets
+- use Azure secrets
 - create Azure resources
-- submit Azure ML jobs
-- run Azure training
+- submit training jobs
+- start cloud compute
 - deploy managed online endpoints
 - call a real Azure ML endpoint
 
-Keeping CI local-only prevents accidental Azure compute cost and makes automated
-validation predictable for pull requests and pushes to `main`.
+This keeps routine validation predictable and avoids accidental cloud usage or cost.
+
+## Validation
+
+The workflow was tested through real pull requests and successfully ran both before merge and after changes reached `main`.

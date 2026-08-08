@@ -1,16 +1,20 @@
 # Azure ML Data Asset Verification
 
-Phase 3.4 adds a local, read-only verification command for the FoliaScan Azure
-Machine Learning data assets. It checks that the expected registered assets are
-available in the configured workspace and still match the local dataset files.
+FoliaScan includes a read-only utility for verifying the Azure Machine Learning data assets used by the project.
 
-The subscription ID is intentionally not documented or hard-coded. Keep it in
-your local environment only.
+The check confirms that the expected registered assets exist in the configured workspace and that their metadata remains consistent with the local dataset files.
 
-## Expected Assets
+The Azure subscription ID is not hard-coded or stored in the repository.
 
-The verifier fetches each asset with `MLClient.data.get()` and validates the
-registered metadata:
+## Registered Assets
+
+The verifier retrieves each asset with:
+
+```python
+MLClient.data.get()
+```
+
+and validates its version, type, tags, and cloud-path availability.
 
 | Name | Version | Type | Required tags |
 | --- | --- | --- | --- |
@@ -18,29 +22,31 @@ registered metadata:
 | `foliascan-dataset-manifest` | `1` | `uri_file` | `project=foliascan`, `source=plantvillage`, `content=dataset-manifest` |
 | `foliascan-source-manifest` | `1` | `uri_file` | `project=foliascan`, `source=plantvillage`, `content=source-manifest` |
 
-Each asset must also expose a cloud path. The command only reports that a cloud
-path is present; it does not print the full storage path.
+The verifier confirms that a cloud path exists for each asset without printing the full storage location.
 
-## Local Checks
+## Local Integrity Checks
 
-The verifier checks the local files before creating an Azure ML client:
+Before connecting to Azure ML, the verifier checks the corresponding local files.
 
-- `data/raw/plantvillage_tomato_color` contains exactly `18160` supported image
-  files.
-- `data/processed/dataset_manifest.csv` contains exactly `18160` data rows.
-- `data/processed/plantvillage_source_manifest.csv` contains exactly `18160`
-  data rows.
-- SHA-256 hashes are calculated for both local manifest files.
+Expected values:
 
-## Environment
+```text
+Tomato images:          18,160
+Dataset manifest rows:  18,160
+Source manifest rows:   18,160
+```
 
-Authenticate locally with the Azure CLI if needed:
+SHA-256 hashes are also calculated for both manifest files so their local contents can be compared and traced reliably.
+
+## Authentication
+
+Authenticate with Azure CLI when needed:
 
 ```powershell
 az login
 ```
 
-Then set the environment variables used by the verifier:
+Then configure the workspace:
 
 ```powershell
 $env:AZURE_SUBSCRIPTION_ID = "<your-subscription-id>"
@@ -48,7 +54,7 @@ $env:AZURE_RESOURCE_GROUP = "rg-foliascan-dev-ne"
 $env:AZURE_ML_WORKSPACE = "mlw-foliascan-dev-ne"
 ```
 
-## Run The Check
+## Run the Verification
 
 ```powershell
 poetry run python -m foliascan.cloud.azure_data_assets `
@@ -57,13 +63,29 @@ poetry run python -m foliascan.cloud.azure_data_assets `
   --source-manifest data/processed/plantvillage_source_manifest.csv
 ```
 
-The report includes only the verification status, asset names, versions, types,
-whether each cloud path is present, local counts, and manifest hashes. It does
-not print subscription IDs, full Azure resource IDs, access tokens, or full
-storage paths.
+The report includes:
+
+- verification status
+- asset name
+- asset version
+- asset type
+- cloud-path availability
+- local image and manifest counts
+- manifest hashes
+
+It does not print subscription IDs, access tokens, full Azure resource IDs, or full storage paths.
 
 ## Safety
 
-This command is read-only. It does not upload, create, update, archive, or
-delete data assets. It does not submit Azure ML jobs, start compute nodes, or
-create Azure resources.
+The verification command is read-only.
+
+It does not:
+
+- upload or register data
+- modify data assets
+- archive or delete assets
+- submit Azure ML jobs
+- start compute
+- create Azure resources
+
+Its purpose is only to confirm that the registered data assets and local dataset metadata are still consistent.

@@ -1,60 +1,59 @@
-# Local Training Foundation
+# Training
 
-Phase 2A added the local data and model foundation for a simple image
-classification baseline. Phase 2B adds local training and validation for that
-baseline. Phase 4 keeps the same entry point usable when Azure ML command jobs
-provide mounted input and output paths, with explicit opt-in MLflow tracking.
-It does not submit Azure jobs, calculate final test accuracy, register models,
-or deploy inference endpoints.
+FoliaScan uses a single PyTorch training pipeline for both local development and Azure Machine Learning jobs. The same entry point handles dataset loading, augmentation, training, validation, checkpointing, artifact generation, and optional MLflow tracking.
 
-## Baseline Model
+The model is a ResNet18 classifier trained on the leakage-safe PlantVillage Tomato dataset manifest.
 
-FoliaScan starts with ResNet18 because it is a well-known, compact convolutional
-baseline with predictable torchvision support. It is strong enough to validate
-the data path and model shape without adding architecture complexity too early.
+## Model
 
-Transfer learning is supported through the `pretrained` setting. When
-`freeze_backbone` is enabled, FoliaScan freezes the ResNet feature extractor and
-keeps the final classification layer trainable for the project-specific tomato
-classes.
+FoliaScan uses ResNet18 as a compact transfer-learning baseline.
 
-## Manifest-Driven Loading
+When pretrained weights are enabled, the model starts from ImageNet features and replaces the original classification layer with a ten-class output layer for the tomato-condition classes.
 
-Training data is read from the leakage-safe FoliaScan manifest:
+The training configuration also supports freezing the backbone while keeping the final classification layer trainable.
+
+## Dataset Loading
+
+Training data is read from the FoliaScan manifest:
 
 ```text
 relative_path,class_name,split,leaf_id,source_split
 ```
 
-The loader preserves `relative_path` as a `Path`, rejects absolute or duplicate
-paths, validates split names, and loads images lazily with Pillow. Images are
-converted to RGB before tensor conversion.
+The loader:
 
-Class indexes are derived from the manifest by sorting class names
-deterministically. The same mapping is used for train, validation, and test, and
-numeric PlantVillage label IDs are not hard-coded.
+- validates manifest paths and split names
+- rejects absolute and duplicate paths
+- loads images lazily with Pillow
+- converts images to RGB
+- derives class indexes deterministically from sorted class names
 
-## Transforms
+The same class mapping is used for training, validation, testing, and inference.
 
-Training transforms resize images, apply a conservative random crop, horizontal
-flip, and small rotation, then use ImageNet normalization. The augmentation is
-intentionally restrained because leaf orientation and disease texture can carry
-important signal.
+The existing manifest split assignments are preserved. The training pipeline does not resplit the data, which keeps the `leaf_id`-based leakage protection intact.
 
-Validation and test transforms are deterministic: resize, center crop, tensor
-conversion, and the same ImageNet normalization.
+## Image Transforms
 
-## Split Integrity
+Training images use light augmentation:
 
-The leakage-safe splits created in Phase 1B2 must remain unchanged. The training
-pipeline filters records by the manifest `split` column and does not resplit
-images. The original `source_split` and `leaf_id` fields remain available for
-auditability.
+- resize
+- conservative random crop
+- horizontal flip
+- small rotation
+- ImageNet normalization
+
+Validation and test transforms are deterministic:
+
+- resize
+- center crop
+- tensor conversion
+- ImageNet normalization
+
+Random augmentation is used only during training.
 
 ## Smoke Test
 
-Run one forward-pass smoke test after the local PlantVillage export and
-leakage-safe manifest exist:
+Before running a full training job, the pipeline can be checked with a single forward pass:
 
 ```powershell
 poetry run python -m foliascan.training.smoke_test `
@@ -64,14 +63,17 @@ poetry run python -m foliascan.training.smoke_test `
   --split train
 ```
 
-The smoke test loads one batch, builds ResNet18, runs a single forward pass, and
-checks that the output shape is `batch_size x number_of_classes`. It uses CPU by
-default unless an available device is explicitly requested. It does not train
-the model.
+The smoke test loads one batch, builds the model, runs inference, and verifies that the output shape matches:
+
+```text
+batch_size × number_of_classes
+```
+
+It does not update model parameters.
 
 ## Local Training
 
-Run local baseline training with:
+Run the full local training pipeline with:
 
 ```powershell
 poetry run python -m foliascan.training.train `
@@ -80,7 +82,7 @@ poetry run python -m foliascan.training.train `
   --config configs/training.example.yaml
 ```
 
-For a short integration check, override the epoch count:
+For a short integration check:
 
 ```powershell
 poetry run python -m foliascan.training.train `
@@ -91,8 +93,7 @@ poetry run python -m foliascan.training.train `
   --output-dir artifacts/training/one_epoch_check
 ```
 
-For a tiny smoke-test training pass, limit the number of batches processed per
-epoch:
+Training and validation batches can also be limited for lightweight pipeline checks:
 
 ```powershell
 poetry run python -m foliascan.training.train `
@@ -105,58 +106,84 @@ poetry run python -m foliascan.training.train `
   --output-dir artifacts/training/batch_limit_check
 ```
 
-The batch limits must be positive integers when supplied. Omitting them
-processes every batch. The limits cap only processed batches; they do not alter
-the dataset manifest or change train, validation, or test split assignments.
+The batch limits affect only how many batches are processed. They do not change the dataset or its split assignments.
 
-MLflow tracking is disabled by default. Enable it only when the process already
-has an MLflow run context, such as inside an Azure ML command job:
+## Training Behaviour
 
-```powershell
-poetry run python -m foliascan.training.train `
-  --manifest data/processed/dataset_manifest.csv `
-  --data-dir data/raw/plantvillage_tomato_color `
-  --config configs/training.example.yaml `
-  --output-dir artifacts/training/mlflow_check `
-  --enable-mlflow
+The training loop uses:
+
+- `torch.nn.CrossEntropyLoss`
+- AdamW optimization
+- configurable learning rate and weight decay
+- training and validation loops
+- checkpoint selection by validation loss
+- optional early stopping
+
+Training records update model weights.
+
+Validation records are used for model selection, checkpointing, and early stopping.
+
+The test split is not used during training or checkpoint selection.
+
+## Checkpoints and Artifacts
+
+Each completed training run writes:
+
+```text
+history.csv
+history.json
+best_model.pt
+last_model.pt
 ```
 
-The training loop uses `torch.nn.CrossEntropyLoss` for multi-class
-classification and AdamW for optimization. AdamW starts as the only supported
-optimizer because it is a practical, stable default for transfer-learning
-baselines and keeps the first local training phase simple.
+`best_model.pt` stores the checkpoint with the lowest validation loss.
 
-Training records update model weights. Validation records guide model selection,
-checkpointing, and early stopping. Test records are not loaded by the training
-loop and must not be used for model selection; final test evaluation is a later
-phase.
+`last_model.pt` stores the most recently completed epoch.
 
-## Azure ML Command-Job Inputs
+The checkpoints contain the information needed to reconstruct and trace the training run, including:
 
-Azure ML command jobs can mount registered data assets into job-specific paths.
-For FoliaScan, the expected registered assets are:
+- model state
+- optimizer state
+- class mapping
+- resolved training configuration
+- train and validation metrics
+- best validation loss
+- random seed
 
-- `foliascan-tomato-images:1` as a `uri_folder`
-- `foliascan-dataset-manifest:1` as a `uri_file`
-- `foliascan-source-manifest:1` as a `uri_file`
+A non-empty output directory is rejected unless `--overwrite` is explicitly supplied.
 
-Phase 4.2 reuses `python -m foliascan.training.train` instead of adding a
-second training program. Reusing the existing entry point keeps the model,
-dataset, DataLoader, engine, checkpoint, and orchestration logic in one place
-for local and future Azure runs.
+## Early Stopping
 
-The training command accepts arbitrary mounted paths for:
+`early_stopping_patience` controls how many completed epochs without validation-loss improvement are allowed before training stops.
 
-- `--data-dir`: mounted image directory
-- `--manifest`: mounted FoliaScan dataset manifest file
-- `--config`: local YAML file included with the submitted code
-- `--output-dir`: Azure-managed output directory
+A value of `0` disables early stopping.
 
-The path arguments are used as supplied. They are not resolved relative to
-`PROJECT_ROOT`, so Linux mount paths such as `/mnt/azureml/...` work when the
-same command runs inside an Azure ML job container.
+The best and last checkpoints are still written when early stopping occurs.
 
-An Azure-style command would have this shape inside the job:
+## Azure Machine Learning
+
+The same training entry point is used for Azure ML command jobs:
+
+```text
+python -m foliascan.training.train
+```
+
+Azure ML supplies mounted paths for registered data assets and a managed output directory. The training code accepts those paths directly instead of assuming that data exists relative to the local repository.
+
+The registered training inputs are:
+
+- `foliascan-tomato-images:1` — `uri_folder`
+- `foliascan-dataset-manifest:1` — `uri_file`
+- `foliascan-source-manifest:1` — `uri_file`
+
+The main path arguments are:
+
+- `--data-dir` — image directory
+- `--manifest` — FoliaScan dataset manifest
+- `--config` — training configuration
+- `--output-dir` — training artifact directory
+
+An Azure-style command has this form:
 
 ```bash
 python -m foliascan.training.train \
@@ -167,89 +194,77 @@ python -m foliascan.training.train \
   --enable-mlflow
 ```
 
-This repository phase prepares the entry point and command-job YAML only. It
-does not submit the Azure ML job, create compute, upload data, start compute,
-register a model, or deploy an endpoint.
+Using one training entry point keeps local and cloud execution aligned and avoids maintaining separate implementations.
 
 ## MLflow Tracking
 
-When `--enable-mlflow` is supplied, FoliaScan uses the current MLflow run
-context. Azure ML command jobs provide the tracking URI and run identity through
-the job environment, so the training script does not call
-`mlflow.set_tracking_uri()` and does not hard-code an Azure ML tracking URI.
+MLflow tracking is optional and enabled with:
 
-The script also does not call `mlflow.set_experiment()`. The Azure command-job
-YAML keeps `experiment_name: foliascan-training`, and Azure ML uses that field
-to place the job run in the intended experiment.
+```text
+--enable-mlflow
+```
 
-MLflow logs these parameters once at the start of tracking:
+Inside an Azure ML command job, the training code uses the run context provided by Azure ML. It does not hard-code a tracking URI or create a separate MLflow experiment.
+
+Tracked parameters include:
 
 - model name
-- epoch count
+- epochs
 - batch size
 - learning rate
-- optimizer name
+- optimizer
 - weight decay
 - image size
-- pretrained and freeze-backbone settings
+- pretrained and backbone-freezing settings
 - random seed
 - requested device
-- smoke-test batch limits
+- optional batch limits
 
-After each epoch, MLflow logs train loss, train accuracy, validation loss,
-validation accuracy, learning rate, and elapsed seconds with the epoch number as
-the MLflow step. At the end of successful training, it logs completed epochs,
-best epoch, best validation loss, best validation accuracy, and whether early
-stopping occurred.
+Metrics are logged after each epoch:
 
-Only lightweight artifacts are logged to MLflow:
+- training loss
+- training accuracy
+- validation loss
+- validation accuracy
+- learning rate
+- elapsed time
 
-- the training configuration YAML
+The epoch number is used as the MLflow step so metric histories can be compared across runs.
+
+Final summary metrics include:
+
+- completed epochs
+- best epoch
+- best validation loss
+- best validation accuracy
+- early-stopping status
+
+MLflow stores lightweight artifacts:
+
+- training configuration
 - `history.csv`
 - `history.json`
 
-`best_model.pt` and `last_model.pt` are not duplicated into MLflow in this
-phase. They are already saved under the training `--output-dir`, which maps to
-the Azure ML named output, and each checkpoint is large enough that duplicating
-it would waste storage and slow tracking.
+The large checkpoint files remain in the Azure ML named training output rather than being duplicated in MLflow.
 
-MLflow tracking is run metadata and artifact logging. It is not model
-registration. Registering a model version from a selected checkpoint is a later
-phase and should remain a deliberate separate step.
-
-## Artifacts
-
-Training writes the configured output directory only when training starts. An
-existing empty output directory is accepted because Azure ML may provide an
-empty mounted output path. A non-empty output directory is rejected unless
-`--overwrite` is passed.
-
-Each run writes:
-
-- `history.csv`
-- `history.json`
-- `best_model.pt`
-- `last_model.pt`
-
-`best_model.pt` is selected by lowest validation loss. `last_model.pt` is
-updated after every completed epoch. Checkpoints include model and optimizer
-state, class mapping, the resolved training configuration, train and validation
-metrics, best validation loss, and the random seed.
-
-## Early Stopping
-
-`early_stopping_patience` counts completed epochs without validation-loss
-improvement. A value of `0` disables early stopping. Best and last checkpoints
-are still written when early stopping occurs.
+Experiment tracking and model registration are kept separate: MLflow records how a run behaved, while the selected checkpoint is registered independently as a versioned Azure ML model asset.
 
 ## Reproducibility
 
-FoliaScan seeds Python `random`, NumPy, PyTorch CPU, and PyTorch CUDA when CUDA
-is available. CUDA requests are explicit: `device: auto` uses CUDA when
-available and CPU otherwise; `device: cuda` fails clearly when CUDA is not
-available. Deterministic cuDNN settings are enabled when CUDA is present, but
-full bit-for-bit reproducibility can still depend on hardware, drivers, and
-library versions.
+FoliaScan seeds:
 
-Model registration, endpoint deployment, and final production workflow
-automation are future phases.
+- Python `random`
+- NumPy
+- PyTorch CPU
+- PyTorch CUDA when available
+
+CUDA behaviour is explicit:
+
+```text
+device: auto  → use CUDA when available, otherwise CPU
+device: cuda  → require CUDA and fail if it is unavailable
+```
+
+Deterministic cuDNN settings are enabled when CUDA is available.
+
+Exact bit-for-bit reproducibility can still depend on hardware, drivers, and library versions.

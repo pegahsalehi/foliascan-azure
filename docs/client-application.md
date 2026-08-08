@@ -1,69 +1,58 @@
 # FoliaScan Client Application
 
-The FoliaScan client application is a small Streamlit interface for invoking a
-previously deployed Azure ML Managed Online Endpoint. It is intentionally a thin
-presentation layer: image upload, preview, endpoint invocation, prediction
-display, and clear user-facing errors.
+FoliaScan includes a lightweight Streamlit interface for sending tomato-leaf images to an Azure ML Managed Online Endpoint and displaying the prediction results.
 
-The application does not create Azure resources, deploy endpoints, train models,
-store uploads, keep history, or authenticate users. The Phase 8 cloud endpoint
-was validated end to end and then deleted to avoid ongoing Azure cost.
+The application is intentionally simple: it handles image upload, preview, endpoint invocation, result presentation, and user-facing errors. It does not create Azure resources, deploy endpoints, train models, persist uploads, or manage users.
 
-## Client Architecture
+## Architecture
 
-The application has two layers:
+The client has two layers:
 
-- `app/streamlit_app.py`: Streamlit UI, asset loading, image preview, result
-  presentation, and display-only class-name formatting.
-- `src/foliascan/client/azure_endpoint.py`: reusable HTTPS client for the
-  Azure ML endpoint request and response contract.
+- `app/streamlit_app.py` — Streamlit UI, image preview, result presentation, branding, and display-only class-name formatting
+- `src/foliascan/client/azure_endpoint.py` — reusable HTTPS client for the Azure ML endpoint
 
-The endpoint client uses ordinary HTTPS through Python standard-library
-networking. It does not require Azure SDK packages for inference. The Streamlit
-app imports the client but does not create the client or send a request until a
-user uploads an image and selects **Analyze**.
+The endpoint client uses standard HTTPS and does not require the Azure SDK for inference.
 
-## Environment Variables
+The Streamlit app does not send a request until the user uploads an image and selects **Analyze**.
 
-Two environment variables configure inference:
+## Configuration
+
+Inference requires two environment variables:
 
 ```powershell
 $env:FOLIASCAN_ENDPOINT_URL = "<managed-online-endpoint-scoring-url>"
 $env:FOLIASCAN_ENDPOINT_KEY = "<managed-online-endpoint-key>"
 ```
 
-Do not commit real values. Do not print them in logs, screenshots, notebooks, or
-documentation. The app displays only application-level errors and prediction
-results; it does not expose endpoint URLs, endpoint keys, Base64 payloads,
-subscription identifiers, or Azure resource identifiers.
+Real values should never be committed to the repository or exposed in logs, screenshots, or documentation.
 
-## Local Streamlit Execution
+The application does not display endpoint URLs, endpoint keys, Base64 payloads, subscription identifiers, or Azure resource identifiers.
 
-Run the app locally from the repository root after installing dependencies:
+## Run Locally
+
+Install dependencies and start Streamlit from the repository root:
 
 ```powershell
 poetry install
 poetry run streamlit run app/streamlit_app.py
 ```
 
-If the endpoint environment variables are missing, the app still starts and
-allows image upload. Configuration errors appear only when **Analyze** is used.
+The app can start without endpoint configuration. Missing configuration is reported only when **Analyze** is used.
 
 ## Request Flow
 
-The workflow is deliberately simple:
+The inference flow is:
 
-1. The user uploads one JPEG or PNG tomato-leaf image.
-2. Streamlit previews the uploaded image.
-3. The user selects **Analyze**.
-4. The app reads endpoint configuration from environment variables.
-5. The client Base64-encodes the image bytes.
-6. The client sends a POST request to the endpoint.
-7. The client validates the JSON response.
-8. The UI displays the prediction, confidence, top three probabilities, and an
-   expandable table of all class probabilities.
+1. Upload one JPEG or PNG tomato-leaf image.
+2. Preview the image in Streamlit.
+3. Select **Analyze**.
+4. Read the endpoint URL and key from environment variables.
+5. Base64-encode the uploaded image.
+6. Send an authenticated POST request to the Azure ML endpoint.
+7. Validate the JSON response.
+8. Display the prediction, confidence, top three probabilities, and the full probability table.
 
-The request body follows the Phase 7 endpoint contract:
+The request body is:
 
 ```json
 {
@@ -71,7 +60,7 @@ The request body follows the Phase 7 endpoint contract:
 }
 ```
 
-The response is expected to contain:
+The expected response contains:
 
 ```json
 {
@@ -84,47 +73,61 @@ The response is expected to contain:
 }
 ```
 
-Class names are humanized only in the UI. The backend response and endpoint
-contract remain unchanged.
+Internal model labels are converted to user-friendly names only in the presentation layer. For example:
+
+```text
+Tomato___Late_blight
+→
+Late Blight
+```
+
+The endpoint contract itself remains unchanged.
 
 ## Error Handling
 
-The endpoint client raises clear application-level errors for:
+The endpoint client handles:
 
-- missing endpoint URL
-- missing endpoint key
-- empty image bytes
-- network failure
-- timeout
-- HTTP 4xx or 5xx status
-- invalid JSON response
-- response missing required prediction fields
+- missing endpoint configuration
+- empty image input
+- network failures
+- request timeouts
+- HTTP errors
+- invalid JSON
+- missing prediction fields
 - invalid response field types
 
-The Streamlit app catches these errors and shows concise user-facing messages
-without exposing secrets or Azure identifiers.
+The Streamlit app catches these errors and presents concise messages without exposing sensitive configuration.
 
-## End-To-End Validation
+## End-to-End Validation
 
-Phase 8 validation included a successful real flow from the Streamlit app to an
-Azure ML Managed Online Endpoint and back to the UI. That proved the uploaded
-image path, Base64 request body, authorization header, endpoint scoring script,
-prediction response validation, and Streamlit result presentation worked
-together.
+The application was tested against a real Azure ML Managed Online Endpoint.
 
-The cloud endpoint was deleted after validation to avoid ongoing cost. Reusing
-the app later requires a newly deployed compatible Azure ML endpoint and fresh
-local environment variables.
+The complete flow was validated:
 
-## Security Considerations
+```text
+Streamlit
+   ↓
+HTTPS client
+   ↓
+Azure ML Managed Online Endpoint
+   ↓
+model inference
+   ↓
+prediction response
+   ↓
+Streamlit result
+```
 
-The endpoint key is read from the local environment and is never hard-coded. The
-client dataclass excludes it from `repr`, and neither the UI nor tests log it.
+After validation, the cloud endpoint was deleted to avoid ongoing compute cost.
 
-The app does not persist uploaded images or predictions. Streamlit still holds
-uploaded bytes in the active session while the app is running, so avoid uploading
-sensitive images to untrusted environments.
+Running real inference again requires a compatible deployed endpoint and fresh local environment variables.
 
-Keep screenshots and demos free of browser developer tools or terminal windows
-that could reveal configuration values. Rotate endpoint keys if they are ever
-shown accidentally.
+## Security
+
+The endpoint key is read from the local environment and is never hard-coded.
+
+The client excludes the key from its object representation, and neither the UI nor tests log it.
+
+Uploaded images and prediction results are not intentionally persisted by the application. Uploaded bytes remain available in the active Streamlit session while the app is running.
+
+Avoid including credentials, endpoint details, or sensitive configuration in screenshots and demos.

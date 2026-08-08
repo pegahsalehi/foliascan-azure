@@ -1,17 +1,36 @@
 # Dataset Preparation
 
-Phase 1B prepares local image datasets for the initial tomato-leaf
-classification scope. Phase 1B2 adds official PlantVillage ingestion and
-leakage-safe split preparation. This repository does not download, commit, or
-redistribute the dataset.
+FoliaScan uses the PlantVillage Tomato dataset for multi-class tomato-leaf image classification.
 
-## Official PlantVillage Source
+The dataset preparation workflow exports the tomato subset, preserves source metadata, and creates leakage-safe train, validation, and test splits.
 
-Use the Hugging Face dataset `mohanty/PlantVillage` with the `color`
-configuration. The export command filters the dataset to `crop == "Tomato"` and
-writes only the tomato subset locally.
+The raw dataset is not committed or redistributed with this repository.
 
-Expected tomato condition classes:
+## PlantVillage Source
+
+The dataset is loaded from the Hugging Face dataset:
+
+```text
+mohanty/PlantVillage
+```
+
+using the:
+
+```text
+color
+```
+
+configuration.
+
+The export process filters records to:
+
+```text
+crop == "Tomato"
+```
+
+and writes only the tomato subset locally.
+
+The expected classes are:
 
 - `Tomato___Bacterial_spot`
 - `Tomato___Early_blight`
@@ -24,37 +43,47 @@ Expected tomato condition classes:
 - `Tomato___Tomato_mosaic_virus`
 - `Tomato___healthy`
 
-The official Hugging Face records are expected to include `image`, class
-metadata, `crop`, `disease`, `leaf_id`, and the official source split. The
-implementation validates class names from dataset metadata instead of relying on
-hard-coded numeric label IDs.
+Class names are validated from dataset metadata rather than relying on hard-coded numeric label IDs.
 
-## Leaf-Group Splitting
+Source records preserve metadata including:
 
-PlantVillage provides a `leaf_id` so images from the same physical leaf can stay
-together. FoliaScan preserves every official PlantVillage `test` record as
-`test`. Real upstream data can contain a small number of fallback leaf IDs that
-appear in both official `train` and official `test`. FoliaScan applies test
-precedence to those groups: every record sharing an official-test `leaf_id` is
-assigned to final `test`.
+- image
+- crop
+- disease
+- class information
+- `leaf_id`
+- original source split
 
-This may move a small number of official-training records into the final
-FoliaScan `test` split. The original `source_split` value is retained, so those
-records remain auditable as `source_split=train` and `split=test`. Official
-training leaf IDs that are absent from official `test` are divided into
-FoliaScan `train` and `validation` subsets.
+## Leakage-Safe Splitting
 
-This prevents leakage: if augmented or related views of the same leaf appeared
-in different splits, validation or test metrics could overstate model quality.
-The PlantVillage-specific split command therefore operates at `leaf_id` group
-level. The generic folder-based split command is not used for PlantVillage
-because it splits individual images and does not know about `leaf_id`.
+PlantVillage provides a `leaf_id` that identifies images originating from the same physical leaf.
 
-## Export PlantVillage Tomato
+FoliaScan uses this identifier to keep related images in the same final split.
 
-The export command downloads the official dataset through Hugging Face. Expect a
-large, multi-gigabyte download. Run it manually only when you are ready to store
-the raw data locally:
+This is important because placing different views or augmentations of the same leaf across training and evaluation splits could cause data leakage and produce overly optimistic metrics.
+
+Official PlantVillage test records remain in the final test split.
+
+A small number of fallback `leaf_id` values can appear in both the original train and test data. FoliaScan applies test precedence to those groups: if a `leaf_id` appears in the official test split, all records with that identifier are assigned to the final test split.
+
+The original source split is still preserved for auditability.
+
+For example:
+
+```text
+source_split=train
+split=test
+```
+
+indicates that the record originally belonged to the source training data but was moved to the final test split to keep its leaf group together.
+
+Remaining training leaf groups are divided between the FoliaScan training and validation splits.
+
+The PlantVillage workflow therefore splits at `leaf_id` level rather than individual image level.
+
+## Export the Tomato Dataset
+
+Run:
 
 ```powershell
 poetry run python -m foliascan.data.cli plantvillage-export `
@@ -62,24 +91,24 @@ poetry run python -m foliascan.data.cli plantvillage-export `
   --source-manifest data/processed/plantvillage_source_manifest.csv
 ```
 
-The exporter writes RGB JPEG files at quality 95 for consistency across source
-image modes and preserves the source metadata in:
+The export downloads the source dataset and writes the tomato subset as RGB JPEG images.
+
+Source metadata is stored in:
 
 ```text
 data/processed/plantvillage_source_manifest.csv
 ```
 
-Source manifest columns:
+The source manifest contains:
 
-- `relative_path`: image path relative to `data/raw/plantvillage_tomato_color`
-- `class_name`: tomato condition class
-- `source_split`: official PlantVillage `train` or `test`
-- `leaf_id`: physical leaf group identifier
+- `relative_path`
+- `class_name`
+- `source_split`
+- `leaf_id`
 
-Use `--overwrite` only when you intentionally want to replace existing exported
-images and the source manifest.
+Use `--overwrite` only when intentionally replacing an existing export.
 
-## Create The FoliaScan Manifest
+## Create the FoliaScan Manifest
 
 After export, create the leakage-safe project manifest:
 
@@ -91,20 +120,29 @@ poetry run python -m foliascan.data.cli plantvillage-split `
   --random-seed 42
 ```
 
-The FoliaScan manifest contains:
+The resulting manifest contains:
 
-- `relative_path`: image path relative to the exported dataset root
-- `class_name`: tomato condition class
-- `split`: FoliaScan `train`, `validation`, or `test`
-- `leaf_id`: physical leaf group identifier
-- `source_split`: official PlantVillage `train` or `test`
+```text
+relative_path
+class_name
+split
+leaf_id
+source_split
+```
 
-Use `--overwrite` only when replacing an existing manifest is intentional.
+Possible final split values are:
+
+```text
+train
+validation
+test
+```
+
+The manifest defines the dataset split used throughout training and evaluation. Downstream pipelines do not resplit the images.
 
 ## Generic Folder-Based Workflow
 
-The generic tools remain available for simple local datasets with one immediate
-subdirectory per class:
+FoliaScan also includes generic utilities for simple image datasets organized as one directory per class:
 
 ```text
 dataset_root/
@@ -117,53 +155,64 @@ dataset_root/
     `-- image_004.jpg
 ```
 
-Supported image extensions are `.jpg`, `.jpeg`, and `.png`, matched
-case-insensitively. Hidden files, hidden directories, unsupported files, and
-nested directories below a class directory are ignored.
+Supported image formats are:
 
-Inspect a local directory-based dataset:
-
-```powershell
-poetry run python -m foliascan.data.cli inspect --data-dir data/raw/plantvillage_tomato_color
+```text
+.jpg
+.jpeg
+.png
 ```
 
-To also write a JSON report:
+Inspect a folder-based dataset with:
 
 ```powershell
-poetry run python -m foliascan.data.cli inspect --data-dir data/raw/plantvillage_tomato_color --json-report data/processed/dataset_report.json
+poetry run python -m foliascan.data.cli inspect `
+  --data-dir data/raw/plantvillage_tomato_color
 ```
 
-Generate a generic stratified manifest from valid images:
+Optionally write a JSON report:
 
 ```powershell
-poetry run python -m foliascan.data.cli split --data-dir data/raw/plantvillage_tomato_color --output data/processed/dataset_manifest.csv
+poetry run python -m foliascan.data.cli inspect `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --json-report data/processed/dataset_report.json
 ```
 
-The generic manifest contains only `relative_path`, `class_name`, and `split`.
-It uses only valid images, does not copy or move image files, and requires
-`--overwrite` before replacing an existing manifest.
+Create a generic stratified manifest with:
 
-## Limitations
+```powershell
+poetry run python -m foliascan.data.cli split `
+  --data-dir data/raw/plantvillage_tomato_color `
+  --output data/processed/dataset_manifest.csv
+```
 
-Controlled image datasets can contain background, lighting, framing, and capture
-conditions that are very different from field images. A model trained only on
-controlled images may learn background bias or other shortcuts instead of robust
-leaf-condition features. Field images can introduce domain shift from different
-cameras, weather, soil, plant varieties, leaf occlusion, and mixed disease
-states.
+The generic workflow splits individual images and does not understand PlantVillage `leaf_id` groups. It should therefore not replace the PlantVillage-specific split workflow for this project.
 
-FoliaScan is educational software. It must not be treated as a diagnostic tool,
-and any future predictions must not replace advice from agricultural
-specialists, agronomists, plant pathologists, or other qualified professionals.
+## Dataset Limitations
 
-## License And Citation
+PlantVillage contains largely controlled images, so its visual distribution can differ substantially from real field conditions.
 
-The Hugging Face dataset card currently lists `cc-by-sa-3.0`, and the upstream
-loader describes the license as CC BY-SA 3.0 subject to verification. Verify the
-license, permitted uses, attribution, share-alike obligations, and redistribution
-rules before sharing the dataset or derived image artifacts.
+A model trained on this dataset may be affected by:
 
-Required citation:
+- background bias
+- controlled lighting
+- framing differences
+- camera differences
+- weather conditions
+- leaf occlusion
+- plant variety
+- mixed disease states
+- other forms of domain shift
+
+Performance on PlantVillage should therefore not be interpreted as equivalent to real-world diagnostic performance.
+
+FoliaScan is not a professional agricultural diagnostic tool and should not replace assessment by qualified agricultural specialists.
+
+## License and Citation
+
+The source dataset documentation lists the dataset under CC BY-SA 3.0. Licensing and redistribution requirements should be reviewed before sharing source images or derived dataset artifacts.
+
+Citation:
 
 ```bibtex
 @article{Mohanty_Hughes_Salathe_2016,
@@ -177,5 +226,11 @@ Required citation:
 }
 ```
 
-Raw datasets and generated data under `data/raw/` and `data/processed/` are
-excluded from Git by default.
+Raw and generated dataset files under:
+
+```text
+data/raw/
+data/processed/
+```
+
+are excluded from Git by default.
