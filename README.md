@@ -59,17 +59,22 @@ Prediction and class probabilities
 
 ## Model Results
 
-The Azure-trained model reached:
+Azure GPU training:
 
 | Metric | Result |
 |---|---:|
 | Validation accuracy | 92.90% |
 | Validation loss | 0.2129 |
-| Final test accuracy | 92.07% |
+
+Final held-out test evaluation:
+
+| Metric | Result |
+|---|---:|
+| Accuracy | 92.07% |
 | Macro F1 | 0.897 |
 | Weighted F1 | 0.920 |
 
-The validation split was used for checkpoint selection. Final test metrics were calculated separately on the held-out test split.
+Validation metrics were used for checkpoint selection, while the held-out test set was evaluated separately.
 
 See [docs/evaluation.md](docs/evaluation.md) for the evaluation workflow and error analysis.
 
